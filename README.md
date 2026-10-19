@@ -159,6 +159,99 @@ make all-uv
 
 Submit using: `sbatch job.sbatch`. Once complete, you can review `results/hpc_job_<ID>.out` and compare the cluster's execution metrics against your laptop's baseline!
 
+
+### Example Makefile for SLURM
+
+```bash
+.PHONY: help submit status logs cancel clean-logs
+
+# Explicitly set the default goal to 'help'
+.DEFAULT_GOAL := help
+
+# Set default environment type to uv, but allow override (e.g., make -f Makefile.slurm submit ENV=mamba)
+ENV ?= uv
+
+help: ## Show this help message and list of available SLURM commands
+  @echo "======================================================================"
+  @echo " HPC SLURM Manager"
+  @echo "======================================================================"
+  @echo "Usage: make -f Makefile.slurm [command] [ENV=uv|mamba]"
+  @echo ""
+  @echo "Available commands:"
+  @grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+  @echo ""
+
+submit: ## Generate a SLURM script with appropriate module loads and submit it
+  @echo "Generating SLURM script for $(ENV) workflow..."
+  @echo "#!/bin/bash" > job_$(ENV).sbatch
+  @echo "#SBATCH --job-name=img_pipe_$(ENV)" >> job_$(ENV).sbatch
+  @echo "#SBATCH --output=results/hpc_job_%j.out" >> job_$(ENV).sbatch
+  @echo "#SBATCH --error=results/hpc_job_%j.err" >> job_$(ENV).sbatch
+  @echo "#SBATCH --time=00:30:00" >> job_$(ENV).sbatch
+  @echo "#SBATCH --nodes=1" >> job_$(ENV).sbatch
+  @echo "#SBATCH --ntasks=1" >> job_$(ENV).sbatch
+  @echo "#SBATCH --cpus-per-task=4" >> job_$(ENV).sbatch
+  @echo "#SBATCH --mem=8G" >> job_$(ENV).sbatch
+  @echo "#SBATCH --partition=compute" >> job_$(ENV).sbatch
+  @echo "" >> job_$(ENV).sbatch
+  @echo "# 1. Load required HPC modules" >> job_$(ENV).sbatch
+ifeq ($(ENV),mamba)
+  @echo "module purge" >> job_$(ENV).sbatch
+  @echo "module load mamba/latest" >> job_$(ENV).sbatch
+else
+  @echo "module purge" >> job_$(ENV).sbatch
+  @echo "module load python/3.10" >> job_$(ENV).sbatch
+  @echo "module load curl" >> job_$(ENV).sbatch
+endif
+  @echo "" >> job_$(ENV).sbatch
+  @echo "# 2. Run the master Makefile" >> job_$(ENV).sbatch
+  @echo "make all-$(ENV)" >> job_$(ENV).sbatch
+  @echo ""
+  @echo "✅ Generated job_$(ENV).sbatch. Submitting to queue..."
+  sbatch job_$(ENV).sbatch
+
+status: ## Check the status of your jobs in the SLURM queue
+  squeue -u $$USER
+
+logs: ## Tail the most recent SLURM output log (Ctrl+C to exit)
+  @latest_log=$$(ls -t results/hpc_job_*.out 2>/dev/null | head -n 1); \
+  if [ -z "$$latest_log" ]; then \
+    echo "No logs found in results/ directory yet."; \
+  else \
+    echo "Tailing $$latest_log..."; \
+    tail -f "$$latest_log"; \
+  fi
+
+cancel: ## Cancel ALL of your currently running or pending SLURM jobs
+  @read -p "Are you sure you want to cancel all your SLURM jobs? [y/N]: " ans; \
+  if [ "$$ans" = "y" ] || [ "$$ans" = "Y" ]; then \
+    scancel -u $$USER; \
+    echo "All jobs cancelled."; \
+  else \
+    echo "Aborted."; \
+  fi
+
+clean-logs: ## Delete all generated .sbatch scripts and SLURM output logs
+  rm -f job_uv.sbatch job_mamba.sbatch
+  rm -f results/hpc_job_*.out results/hpc_job_*.err
+  @echo "SLURM logs and generated batch scripts cleaned."
+```
+
+1. **Submission:**
+* Run `make -f Makefile.slurm submit` (defaults to `uv` and loads the standard `python` module).
+* Run `make -f Makefile.slurm submit ENV=mamba` (generates the script specifically with `module load mamba`).
+
+
+2. **Monitoring:**
+* `make -f Makefile.slurm status` wraps `squeue`.
+* `make -f Makefile.slurm logs` automatically finds the newest `.out` file in your `results/` folder and `tail`s it so they can watch the output live.
+
+
+3. **Safety:**
+* `make -f Makefile.slurm cancel` gives them an easy panic button (with a [y/N] prompt) to stop their jobs if they realize they made a mistake.
+
+
+
 ## 📝 License
 
 This project is licensed under the MIT License.
