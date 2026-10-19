@@ -1,0 +1,35 @@
+# Environments
+.venv/
+.mamba-env/
+
+# Data
+data/
+*.tgz
+
+# Profiling and Execution Results
+results/
+*.json
+*.html
+*.bin
+*.out
+*.err
+
+# Python Cache and Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# macOS / OS specific
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Jupyter Notebook checkpoints (if you use Colab/Jupyter later)
+.ipynb_checkpoints/
