@@ -1,0 +1,7 @@
+pytest
+opencv-python-headless
+Pillow
+torch
+torchvision
+memray; sys_platform != 'win32'
+scalene
