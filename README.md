@@ -28,14 +28,21 @@ The core philosophy of this workshop is: **Experiment and debug locally, automat
 
 ## 🚀 Prerequisites & Execution Environments
 
-### 1. Google Colab (One-Click Cloud Environment — No Local Setup Required!)
+### 1. Google Colab (Recommended Alternative for Windows Users & Cloud GPU)
 
-For workshop attendees who do not have a Linux machine, macOS, or dedicated GPU:
+> 💡 **Alternative Method for Windows Users:**  
+> If you are on **Windows** (without WSL2/Ubuntu configured), native Windows shells (PowerShell, CMD) often run into path and syntax incompatibilities with POSIX `Makefile` subshells and native C-extension compilers.  
+> **We strongly recommend running via Google Colab!** Google Colab provisions a free, pre-configured Ubuntu Linux container with high-speed network access, Python 3.10, and free NVIDIA cloud GPUs (T4/L4) directly in your browser.
+
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/erolrecep/scientific_python_workflow_hpc/blob/main/notebooks/scientific_python_workflow_colab.ipynb)
 
-* Open the interactive notebook: [`notebooks/scientific_python_workflow_colab.ipynb`](file:///Users/erolrecep/Developer/codebase/apps/scientific_python_workflow_hpc/notebooks/scientific_python_workflow_colab.ipynb).
-* Switch to a free cloud GPU: **Runtime** ➔ **Change runtime type** ➔ **T4 GPU** ➔ **Save**.
-* Follow the guided notebook cells to run `uv` bootstrapping, dataset verification, single-core, multi-core, and CUDA GPU batch acceleration with interactive charts!
+* **Direct Colab Link:** [https://colab.research.google.com/github/erolrecep/scientific_python_workflow_hpc/blob/main/notebooks/scientific_python_workflow_colab.ipynb](https://colab.research.google.com/github/erolrecep/scientific_python_workflow_hpc/blob/main/notebooks/scientific_python_workflow_colab.ipynb)
+* **Local Notebook Path:** [`notebooks/scientific_python_workflow_colab.ipynb`](file:///Users/erolrecep/Developer/codebase/apps/scientific_python_workflow_hpc/notebooks/scientific_python_workflow_colab.ipynb)
+* **How to Enable Free GPU in Colab:**
+  1. Click the badge above to open the notebook.
+  2. In the top menu, go to **Runtime** ➔ **Change runtime type**.
+  3. Under **Hardware accelerator**, select **T4 GPU** ➔ click **Save**.
+  4. Select **Runtime** ➔ **Run all** (or press `Shift + Enter` on each cell).
 
 ### 2. Local Environment (Linux / macOS)
 
@@ -172,6 +179,29 @@ Beyond sequential and multi-core CPU execution, our third paradigm is **hardware
 | **PyTorch (GPU)** | **GPU (CUDA)** | **NVIDIA RTX 5060 Ti** | **0.895 s** | **1,117.2 img/s** | **2.17x** *(5.32x vs PyTorch CPU)* |
 
 > **Key Takeaway:** For CPU multi-core scaling, OpenCV and Pillow scale with 2.3x–2.7x speedup across 16 cores. For PyTorch, running on GPU via CUDA delivers an immediate **5.32x speedup** over PyTorch CPU execution while freeing CPU cores for upstream ETL.
+
+### Empirical Benchmark Results on Google Colab (Tesla T4 GPU, 500 Images)
+
+Workshop attendees running via Google Colab ([`notebooks/scientific_python_workflow_colab.ipynb`](file:///Users/erolrecep/Developer/codebase/apps/scientific_python_workflow_hpc/notebooks/scientific_python_workflow_colab.ipynb)) execute on cloud-hosted Google infrastructure:
+
+* **Colab Notebook:** [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/erolrecep/scientific_python_workflow_hpc/blob/main/notebooks/scientific_python_workflow_colab.ipynb)
+* **Hardware:** Intel Xeon @ 2.20GHz (2 vCPUs, 12.7 GB RAM) + NVIDIA Tesla T4 (15.3 GB VRAM, Turing Architecture)
+* **Dataset:** 500 images from Oxford 17flowers
+
+| Backend | Execution Mode | Hardware Target | Wall Time | Throughput | Speedup vs Baseline |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **OpenCV** | CPU (1-Core) | Intel Xeon (1 Core) | 1.760 s | 284.1 img/s | 1.00x |
+| **OpenCV** | CPU (2-Core) | Intel Xeon (2 Cores) | **0.994 s** | **503.0 img/s** | **1.77x** |
+| **Pillow** | CPU (1-Core) | Intel Xeon (1 Core) | 2.857 s | 175.0 img/s | 0.62x |
+| **Pillow** | CPU (2-Core) | Intel Xeon (2 Cores) | **1.623 s** | **308.1 img/s** | **1.08x** |
+| **PyTorch** | CPU (1-Core) | Intel Xeon (1 Core) | 5.263 s | 95.0 img/s | 0.33x |
+| **PyTorch** | CPU (2-Core) | Intel Xeon (2 Cores) | 3.817 s | 131.0 img/s | 0.46x |
+| **PyTorch (GPU)** | **GPU (CUDA)** | **NVIDIA Tesla T4** | **0.612 s** | **817.0 img/s** | **2.88x** *(6.24x vs PyTorch CPU)* |
+
+> **Colab Takeaways:**
+> 1. **Multi-Core Scaling on Free Cloud Compute:** `ProcessPoolExecutor` scales near-linearly across Colab's 2 allocated vCPUs, delivering a **1.77x speedup** on OpenCV with zero code modification.
+> 2. **T4 Tensor Core Acceleration:** Offloading the batch pipeline (2D convolution sharpening + bilinear interpolation) to Colab's free **NVIDIA Tesla T4 GPU** delivers **817.0 img/s** — a **6.24x speedup** over PyTorch CPU processing and substantially outperforming dual-core CPU processing.
+> 3. **Perfect Alternative for Windows Attendees:** Workshop participants without Unix/macOS or local GPUs achieve full GPU hardware acceleration and profiling results directly from their web browser.
 
 ## 📊 Profiling: What to Expect
 
