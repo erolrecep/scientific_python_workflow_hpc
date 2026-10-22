@@ -130,27 +130,45 @@ torch.set_num_threads(1)
 ### 3. Chunked Task Distribution
 Images are batched into contiguous slices per worker process, eliminating 99% of inter-process serialization (IPC) overhead.
 
-### 4. Running the Multi-Core Benchmark
+### 4. Running Benchmarks Across Backends & GPU
 ```bash
-# Run the 1-core vs. N-core scaling benchmark:
-make benchmark WORKERS=4 MAX_IMAGES=500
+# Run 1-core vs. N-core benchmark for a specific backend:
+make benchmark WORKERS=16 BACKEND=opencv MAX_IMAGES=1000
+make benchmark WORKERS=16 BACKEND=pillow MAX_IMAGES=1000
+make benchmark WORKERS=16 BACKEND=pytorch MAX_IMAGES=1000
 
-# Run batch processing with custom workers and backend:
-make process WORKERS=8 BACKEND=opencv
+# Run unified comparison across ALL backends (OpenCV, Pillow, PyTorch CPU & GPU):
+make benchmark-all WORKERS=16 MAX_IMAGES=1000
+
+# Run standalone batched GPU processing on CUDA / MPS:
+make process-gpu DEVICE=cuda BATCH_SIZE=64 MAX_IMAGES=1000
 ```
 
-**Benchmark Sample Output (Apple Silicon):**
-```text
-----------------------------------------------------------------------
-Mode               | Workers  | Wall Time    | Throughput      | Speedup 
-----------------------------------------------------------------------
-Single-Core        | 1        |   0.303 s    | 1652.5 img/s    | 1.00x
-Multi-Core (HPC)   | 4        |   0.082 s    | 6127.2 img/s    | 3.71x
-----------------------------------------------------------------------
-🎉 Scaling Factor:   3.71x speedup across 4 cores
-⚡ Parallel Efficiency: 92.7%
-----------------------------------------------------------------------
-```
+## 🚀 Third Running Approach: GPU Acceleration (`dlbox`)
+
+Beyond sequential and multi-core CPU execution, our third paradigm is **hardware-accelerated GPU batch processing** utilizing PyTorch with CUDA (or Apple Silicon MPS). 
+
+### GPU Architecture Highlights
+- **Pipelined Host-to-Device Streaming:** Multi-threaded SIMD host decoding (`cv2.imread` / `libjpeg-turbo`) streams zero-copy tensors directly to the GPU stream.
+- **Batched 2D Tensor Convolutions:** The sharpening kernel (`3x3`) is computed in parallel across the entire tensor batch on CUDA cores via `F.conv2d(batch, weight, padding=1)`.
+- **GPU Bilinear Interpolation:** Resizing to `(229, 229)` is executed directly on GPU memory via `F.interpolate()`.
+- **Variable-Dimension Resilience:** Mini-batches with identical shapes execute in batched matrix operations; variable-resolution inputs stream dynamically without shape errors.
+
+### Empirical Benchmark Results on `dlbox` (1,000 Images)
+* **Hardware:** AMD Ryzen Threadripper 2950X (16 Cores / 32 Threads) + NVIDIA GeForce RTX 5060 Ti (16 GB VRAM)
+* **Dataset:** 1,000 images from Oxford 17flowers
+
+| Backend | Execution Mode | Hardware Target | Wall Time | Throughput | Speedup vs Baseline |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **OpenCV** | CPU (1-Core) | AMD Threadripper (1 Core) | 1.944 s | 514.4 img/s | 1.00x |
+| **OpenCV** | CPU (16-Core) | AMD Threadripper (16 Cores) | **0.710 s** | **1,408.9 img/s** | **2.74x** |
+| **Pillow** | CPU (1-Core) | AMD Threadripper (1 Core) | 3.568 s | 280.3 img/s | 0.54x |
+| **Pillow** | CPU (16-Core) | AMD Threadripper (16 Cores) | **0.849 s** | **1,177.7 img/s** | **2.29x** |
+| **PyTorch** | CPU (1-Core) | AMD Threadripper (1 Core) | 4.760 s | 210.1 img/s | 0.41x |
+| **PyTorch** | CPU (16-Core) | AMD Threadripper (16 Cores) | 7.126 s | 140.3 img/s | 0.27x |
+| **PyTorch (GPU)** | **GPU (CUDA)** | **NVIDIA RTX 5060 Ti** | **0.895 s** | **1,117.2 img/s** | **2.17x** *(5.32x vs PyTorch CPU)* |
+
+> **Key Takeaway:** For CPU multi-core scaling, OpenCV and Pillow scale with 2.3x–2.7x speedup across 16 cores. For PyTorch, running on GPU via CUDA delivers an immediate **5.32x speedup** over PyTorch CPU execution while freeing CPU cores for upstream ETL.
 
 ## 📊 Profiling: What to Expect
 

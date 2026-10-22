@@ -18,17 +18,34 @@ DATA_DIR = "data/jpg"
 TARGET_SIZE = (229, 229)
 SHARPEN_KERNEL = np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]], dtype=np.float32)
 
-_PYTORCH_TRANSFORMS = None
+_PYTORCH_TRANSFORMS = {}
 
-def _get_pytorch_transforms():
+def get_optimal_device(requested_device: str = None) -> str:
+    """Detects available hardware acceleration device (cuda, mps, or cpu)."""
+    if requested_device and requested_device != "auto":
+        return requested_device
+    try:
+        import torch
+        if torch.cuda.is_available():
+            return "cuda"
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            return "mps"
+    except Exception:
+        pass
+    return "cpu"
+
+
+def _get_pytorch_transforms(device: str = "cpu"):
+    """Caches transform and 2D convolution sharpening kernel for a given device."""
     global _PYTORCH_TRANSFORMS
-    if _PYTORCH_TRANSFORMS is None:
+    if device not in _PYTORCH_TRANSFORMS:
+        import torch
         import torchvision.transforms as T
-        _PYTORCH_TRANSFORMS = (
-            T.ToTensor(),
-            T.Resize(TARGET_SIZE, interpolation=T.InterpolationMode.BILINEAR)
-        )
-    return _PYTORCH_TRANSFORMS
+        to_tensor = T.ToTensor()
+        resize = T.Resize(TARGET_SIZE, interpolation=T.InterpolationMode.BILINEAR)
+        sharpen_weight = torch.from_numpy(SHARPEN_KERNEL).view(1, 1, 3, 3).to(device)
+        _PYTORCH_TRANSFORMS[device] = (to_tensor, resize, sharpen_weight)
+    return _PYTORCH_TRANSFORMS[device]
 
 
 def get_optimal_workers(requested_workers: int = None) -> int:
@@ -128,12 +145,14 @@ def process_with_pillow(image_path: str) -> Image.Image:
     return resized
 
 
-def process_with_pytorch(image_path: str):
-    """Grayscale -> Bilinear Resize using PyTorch."""
-    to_tensor, resize = _get_pytorch_transforms()
+def process_with_pytorch(image_path: str, device: str = "cpu"):
+    """Grayscale -> Sharpen (conv2d) -> Bilinear Resize using PyTorch."""
+    import torch.nn.functional as F
+    to_tensor, resize, sharpen_weight = _get_pytorch_transforms(device)
     img = Image.open(image_path).convert('L')
-    tensor_img = to_tensor(img)
-    resized = resize(tensor_img)
+    tensor_img = to_tensor(img).unsqueeze(0).to(device)
+    sharpened = F.conv2d(tensor_img, sharpen_weight, padding=1).clamp(0.0, 1.0)
+    resized = resize(sharpened).squeeze(0)
     return resized
 
 
@@ -186,14 +205,13 @@ def process_dataset_sequential(image_paths: List[str], backend: str = "opencv", 
 
 
 def get_mp_context():
-    """Returns fork context on Unix/Linux for near-zero process startup latency."""
+    """
+    Returns multiprocessing context.
+    Uses 'spawn' start method to guarantee POSIX safety and prevent deadlocks
+    when OpenCV/PyTorch C++ runtimes are active in the parent process.
+    """
     import multiprocessing as mp
-    if "fork" in mp.get_all_start_methods():
-        try:
-            return mp.get_context("fork")
-        except Exception:
-            pass
-    return mp.get_context()
+    return mp.get_context("spawn")
 
 
 def process_dataset_multicore(image_paths: List[str], num_workers: int = None,
@@ -215,6 +233,80 @@ def process_dataset_multicore(image_paths: List[str], num_workers: int = None,
     ctx = get_mp_context()
     with ProcessPoolExecutor(max_workers=num_chunks, mp_context=ctx, initializer=init_worker) as executor:
         list(executor.map(process_chunk_task, chunk_tasks))
+    t1 = time.perf_counter()
+    return t1 - t0
+
+
+def process_dataset_gpu(image_paths: List[str], batch_size: int = 64, device: str = None,
+                        output_dir: str = None) -> float:
+    """
+    High-Performance Batched GPU Image Processing Pipeline via PyTorch (CUDA / MPS).
+    Pipelines host-to-device streaming:
+    Grayscale -> 2D Convolution Sharpening -> Bilinear Interpolation.
+    Supports variable-dimension image datasets seamlessly with SIMD host decoding.
+    """
+    import torch
+    import torch.nn.functional as F
+    from concurrent.futures import ThreadPoolExecutor
+
+    dev_str = get_optimal_device(device)
+    dev = torch.device(dev_str)
+
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+
+    to_tensor, _, sharpen_weight = _get_pytorch_transforms(dev_str)
+
+    def load_single_tensor(path: str):
+        try:
+            arr = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+            if arr is not None:
+                return torch.from_numpy(arr).unsqueeze(0).unsqueeze(0).float().div_(255.0)
+        except Exception:
+            pass
+        img = Image.open(path).convert('L')
+        return to_tensor(img).unsqueeze(0)
+
+    # Warmup GPU kernels
+    dummy = torch.randn(1, 1, 500, 500, device=dev)
+    _ = F.interpolate(F.conv2d(dummy, sharpen_weight, padding=1), size=TARGET_SIZE, mode="bilinear")
+    if dev_str == "cuda":
+        torch.cuda.synchronize()
+
+    t0 = time.perf_counter()
+    num_images = len(image_paths)
+
+    for i in range(0, num_images, batch_size):
+        chunk = image_paths[i:i + batch_size]
+        # Multi-threaded image reading and decoding from disk using C/SIMD
+        with ThreadPoolExecutor(max_workers=min(8, len(chunk))) as pool:
+            tensors = list(pool.map(load_single_tensor, chunk))
+
+        # Check if all images in this mini-batch have identical dimensions for batch processing
+        shapes = [t.shape for t in tensors]
+        if all(s == shapes[0] for s in shapes):
+            batch = torch.cat(tensors, dim=0).to(dev, non_blocking=True)
+            sharp = F.conv2d(batch, sharpen_weight, padding=1).clamp(0.0, 1.0)
+            resized = F.interpolate(sharp, size=TARGET_SIZE, mode="bilinear", align_corners=False)
+            if output_dir:
+                cpu_arrs = (resized.cpu().numpy() * 255.0).astype(np.uint8)
+                for p, arr in zip(chunk, cpu_arrs):
+                    out_path = os.path.join(output_dir, os.path.basename(p))
+                    Image.fromarray(arr[0]).save(out_path)
+        else:
+            # Handle variable-size images individually on GPU stream
+            for p, t in zip(chunk, tensors):
+                t_gpu = t.to(dev, non_blocking=True)
+                sharp = F.conv2d(t_gpu, sharpen_weight, padding=1).clamp(0.0, 1.0)
+                resized = F.interpolate(sharp, size=TARGET_SIZE, mode="bilinear", align_corners=False)
+                if output_dir:
+                    arr = (resized.squeeze().cpu().numpy() * 255.0).astype(np.uint8)
+                    out_path = os.path.join(output_dir, os.path.basename(p))
+                    Image.fromarray(arr).save(out_path)
+
+    if dev_str == "cuda":
+        torch.cuda.synchronize()
+
     t1 = time.perf_counter()
     return t1 - t0
 
@@ -256,48 +348,85 @@ def run_cross_verification(sample_img: str):
 # Benchmarking & Scaling Suite
 # =============================================================================
 
-def run_multicore_benchmark(image_paths: List[str], workers: int, backend: str = "opencv"):
-    """Runs a 1-Core vs N-Core scaling benchmark and computes speedup & efficiency."""
+def run_multicore_benchmark(image_paths: List[str], workers: int, backend: str = "opencv",
+                            device: str = None, batch_size: int = 64):
+    """Runs scaling benchmarks across backends (OpenCV, Pillow, PyTorch CPU, and PyTorch GPU)."""
     n_images = len(image_paths)
-    print("\n" + "=" * 70)
-    print(f"🚀 HPC MULTI-CORE SCALING BENCHMARK ({n_images} images | backend: {backend})")
-    print("=" * 70)
-    print(f"  Detected Allocation: {workers} CPU Cores")
+    print("\n" + "=" * 78)
+    print(f"🚀 HPC MULTI-CORE & GPU SCALING BENCHMARK ({n_images} images)")
+    print("=" * 78)
+    print(f"  CPU Cores Allocation: {workers} Workers")
 
-    # 1. Sequential Single-Core Run
-    print(f"\n[1/2] Running Sequential Baseline (1 Worker)...")
-    t_seq = process_dataset_sequential(image_paths, backend=backend)
-    fps_seq = n_images / t_seq
-    print(f"      Time: {t_seq:.3f} s  |  Throughput: {fps_seq:.1f} images/sec")
+    dev_str = get_optimal_device(device)
+    dev_name = "N/A"
+    try:
+        import torch
+        if dev_str == "cuda" and torch.cuda.is_available():
+            dev_name = torch.cuda.get_device_name(0)
+        elif dev_str == "mps":
+            dev_name = "Apple Silicon (MPS)"
+    except Exception:
+        pass
+    print(f"  GPU Hardware Target:  {dev_str.upper()} ({dev_name})")
 
-    # 2. Parallel Multi-Core Run
-    print(f"\n[2/2] Running Multi-Core Parallel Run ({workers} Workers)...")
-    t_par = process_dataset_multicore(image_paths, num_workers=workers, backend=backend)
-    fps_par = n_images / t_par
-    print(f"      Time: {t_par:.3f} s  |  Throughput: {fps_par:.1f} images/sec")
+    backends_to_test = ["opencv", "pillow", "pytorch"] if backend == "all" else [backend]
+    results = []
 
-    # Metrics
-    speedup = t_seq / t_par if t_par > 0 else 0.0
-    efficiency = (speedup / workers) * 100.0 if workers > 0 else 0.0
+    # Baseline sequential time (used for speedup calculation across all entries)
+    t_baseline = None
 
-    print("\n" + "-" * 70)
-    print(f"{'Mode':<18} | {'Workers':<8} | {'Wall Time':<12} | {'Throughput':<15} | {'Speedup':<8}")
-    print("-" * 70)
-    print(f"{'Single-Core':<18} | {1:<8} | {t_seq:7.3f} s    | {fps_seq:6.1f} img/s    | 1.00x")
-    print(f"{'Multi-Core (HPC)':<18} | {workers:<8} | {t_par:7.3f} s    | {fps_par:6.1f} img/s    | {speedup:4.2f}x")
-    print("-" * 70)
-    print(f"🎉 Scaling Factor:   {speedup:.2f}x speedup across {workers} cores")
-    print(f"⚡ Parallel Efficiency: {efficiency:.1f}%")
-    print("=" * 70)
+    if backend != "gpu":
+        for b in backends_to_test:
+            print(f"\n[Benchmarking Backend: {b.upper()}]")
+            # 1. Single-Core Sequential
+            print(f"  - Running 1-Core Sequential Baseline...")
+            t_seq = process_dataset_sequential(image_paths, backend=b)
+            fps_seq = n_images / t_seq
+            if t_baseline is None:
+                t_baseline = t_seq
+            speedup_seq = t_baseline / t_seq
+            results.append((b, "CPU (1-Core)", "1 Core", t_seq, fps_seq, speedup_seq))
+            print(f"    Wall Time: {t_seq:.3f} s | Throughput: {fps_seq:.1f} img/s")
+
+            # 2. Multi-Core Parallel
+            print(f"  - Running {workers}-Core Parallel Pipeline...")
+            t_par = process_dataset_multicore(image_paths, num_workers=workers, backend=b)
+            fps_par = n_images / t_par
+            speedup_par = t_baseline / t_par
+            results.append((b, f"CPU ({workers}-Core)", f"{workers} Cores", t_par, fps_par, speedup_par))
+            print(f"    Wall Time: {t_par:.3f} s | Throughput: {fps_par:.1f} img/s | Speedup: {speedup_par:.2f}x")
+
+    # 3. GPU Acceleration Run (if backend is "all" or "gpu")
+    if (backend == "all" and dev_str in ["cuda", "mps"]) or backend == "gpu":
+        print(f"\n[Benchmarking Backend: PYTORCH GPU ({dev_str.upper()})]")
+        if t_baseline is None:
+            t_baseline = process_dataset_sequential(image_paths, backend="opencv")
+
+        print(f"  - Running Batched GPU Pipeline (batch_size={batch_size})...")
+        t_gpu = process_dataset_gpu(image_paths, batch_size=batch_size, device=dev_str)
+        fps_gpu = n_images / t_gpu
+        speedup_gpu = t_baseline / t_gpu
+        target_label = f"GPU ({dev_str.upper()})"
+        results.append(("pytorch", target_label, dev_name[:14], t_gpu, fps_gpu, speedup_gpu))
+        print(f"    Wall Time: {t_gpu:.3f} s | Throughput: {fps_gpu:.1f} img/s | Speedup: {speedup_gpu:.2f}x")
+
+    print("\n" + "=" * 78)
+    print(f"{'Backend':<10} | {'Execution Mode':<16} | {'Hardware':<15} | {'Wall Time':<10} | {'Throughput':<12} | {'Speedup':<8}")
+    print("-" * 78)
+    for b_name, mode_name, hw_name, wtime, fps, spd in results:
+        print(f"{b_name:<10} | {mode_name:<16} | {hw_name:<15} | {wtime:6.3f} s   | {fps:7.1f} img/s | {spd:5.2f}x")
+    print("=" * 78)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Multi-Core Scientific Image Processing Pipeline")
+    parser = argparse.ArgumentParser(description="Multi-Core & GPU Scientific Image Processing Pipeline")
     parser.add_argument("--data-dir", type=str, default=DATA_DIR, help="Path to raw JPEG images directory")
-    parser.add_argument("--workers", "-w", type=int, default=None, help="Number of CPU worker processes (auto-detected if None)")
+    parser.add_argument("--workers", "-w", type=int, default=None, help="Number of CPU worker processes")
     parser.add_argument("--max-images", "-n", type=int, default=100, help="Max images to process (0 for all)")
-    parser.add_argument("--backend", type=str, default="opencv", choices=["opencv", "pillow", "pytorch"], help="Processing library backend")
-    parser.add_argument("--benchmark", action="store_true", help="Run 1-core vs N-core scaling benchmark")
+    parser.add_argument("--backend", type=str, default="opencv", choices=["opencv", "pillow", "pytorch", "gpu", "all"], help="Processing library backend")
+    parser.add_argument("--device", type=str, default="auto", choices=["auto", "cuda", "mps", "cpu"], help="Hardware acceleration device")
+    parser.add_argument("--batch-size", type=int, default=64, help="Batch size for GPU execution")
+    parser.add_argument("--benchmark", action="store_true", help="Run multi-core / GPU scaling benchmark")
     parser.add_argument("--no-verify", action="store_true", help="Skip single-image cross-library diff test")
     parser.add_argument("--output-dir", type=str, default=None, help="Directory to save processed output images")
     args = parser.parse_args()
@@ -316,9 +445,16 @@ def main():
     if not args.no_verify and len(images) > 0:
         run_cross_verification(images[0])
 
-    # 2. Benchmarking or Multi-Core Batch Processing
+    # 2. Benchmarking or Processing
     if args.benchmark:
-        run_multicore_benchmark(images, workers=workers, backend=args.backend)
+        run_multicore_benchmark(images, workers=workers, backend=args.backend,
+                                device=args.device, batch_size=args.batch_size)
+    elif args.backend == "gpu":
+        dev_str = get_optimal_device(args.device)
+        print(f"\n⚡ Executing GPU Pipeline ({len(images)} images | device: {dev_str.upper()} | batch_size: {args.batch_size})...")
+        t_elapsed = process_dataset_gpu(images, batch_size=args.batch_size, device=dev_str, output_dir=args.output_dir)
+        throughput = len(images) / t_elapsed if t_elapsed > 0 else 0.0
+        print(f"✅ Processed {len(images)} images on GPU in {t_elapsed:.3f} s ({throughput:.1f} images/sec).")
     else:
         print(f"\n⚡ Executing Multi-Core Batch Pipeline ({len(images)} images | {workers} workers | backend: {args.backend})...")
         t_elapsed = process_dataset_multicore(images, num_workers=workers, backend=args.backend, output_dir=args.output_dir)

@@ -61,3 +61,15 @@ def test_multicore_processing():
     finally:
         if os.path.exists(out_dir):
             shutil.rmtree(out_dir)
+
+def test_gpu_or_mps_processing():
+    from src.process_images import process_dataset_gpu
+    image_paths = [os.path.join(DUMMY_DIR, f"dummy_{i}.jpg") for i in range(4)]
+    out_dir = "tests/test_gpu_output"
+    try:
+        duration = process_dataset_gpu(image_paths, batch_size=2, output_dir=out_dir)
+        assert duration > 0.0
+        assert len(os.listdir(out_dir)) == 4
+    finally:
+        if os.path.exists(out_dir):
+            shutil.rmtree(out_dir)

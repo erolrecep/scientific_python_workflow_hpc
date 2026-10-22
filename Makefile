@@ -1,4 +1,4 @@
-.PHONY: help all-uv all-mamba env env-uv env-mamba data data-synthetic process benchmark test profile clean
+.PHONY: help all-uv all-mamba env env-uv env-mamba data data-synthetic process process-gpu benchmark benchmark-all test profile clean
 
 # Explicitly set the default goal to 'help'
 .DEFAULT_GOAL := help
@@ -8,6 +8,8 @@ ENV ?= uv
 WORKERS ?= 4
 MAX_IMAGES ?= 200
 BACKEND ?= opencv
+DEVICE ?= auto
+BATCH_SIZE ?= 64
 
 # Dynamically set paths based on the chosen environment. 
 # Mamba requires the ./ prefix to force a local directory installation.
@@ -59,8 +61,14 @@ data-synthetic: env ## Generate synthetic test images (instant offline / CI mode
 process: env data ## Run the multi-core image processing pipeline across CPU cores
 	$(PYTHON) src/process_images.py --workers $(WORKERS) --max-images $(MAX_IMAGES) --backend $(BACKEND)
 
-benchmark: env data ## Run 1-core vs multi-core scaling and throughput benchmark
-	$(PYTHON) src/process_images.py --benchmark --workers $(WORKERS) --max-images $(MAX_IMAGES) --backend $(BACKEND)
+process-gpu: env data ## Run batched GPU image processing pipeline on CUDA or Apple Silicon MPS
+	$(PYTHON) src/process_images.py --backend gpu --max-images $(MAX_IMAGES) --device $(DEVICE) --batch-size $(BATCH_SIZE)
+
+benchmark: env data ## Run 1-core vs multi-core scaling benchmark (supports BACKEND=opencv|pillow|pytorch|gpu|all)
+	$(PYTHON) src/process_images.py --benchmark --workers $(WORKERS) --max-images $(MAX_IMAGES) --backend $(BACKEND) --device $(DEVICE) --batch-size $(BATCH_SIZE)
+
+benchmark-all: env data ## Run comparative benchmark across OpenCV, Pillow, PyTorch CPU, and GPU
+	$(PYTHON) src/process_images.py --benchmark --workers $(WORKERS) --max-images $(MAX_IMAGES) --backend all --device $(DEVICE) --batch-size $(BATCH_SIZE)
 
 test: env ## Run pytest unit tests to verify image output dimensions and multi-core processing
 	$(PYTHON) -m pytest tests/
