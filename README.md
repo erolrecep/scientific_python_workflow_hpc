@@ -5,6 +5,7 @@
   <img src="https://img.shields.io/badge/Build-Make-orange.svg?logo=gnu&logoColor=white" alt="Make">
   <img src="https://img.shields.io/badge/Env-uv%20%7C%20mamba-success.svg" alt="Environment">
   <img src="https://img.shields.io/badge/HPC-SLURM_Ready-blueviolet.svg" alt="HPC">
+  <a href="https://colab.research.google.com/github/erolrecep/scientific_python_workflow_hpc/blob/main/notebooks/scientific_python_workflow_colab.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
   <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
   <a href="https://erolrecep.github.io"><img src="https://img.shields.io/badge/Blog-erolrecep.github.io-red.svg" alt="Blog"></a>
 </p>
@@ -25,21 +26,23 @@ The core philosophy of this workshop is: **Experiment and debug locally, automat
 
 5. **Code Profiling:** Measure CPU, RAM, and Disk I/O bottlenecks using `scalene` and `memray` before deploying to an HPC cluster.
 
-## 🚀 Prerequisites
+## 🚀 Prerequisites & Execution Environments
 
-### Local Environment (Linux / macOS)
+### 1. Google Colab (One-Click Cloud Environment — No Local Setup Required!)
+
+For workshop attendees who do not have a Linux machine, macOS, or dedicated GPU:
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/erolrecep/scientific_python_workflow_hpc/blob/main/notebooks/scientific_python_workflow_colab.ipynb)
+
+* Open the interactive notebook: [`notebooks/scientific_python_workflow_colab.ipynb`](file:///Users/erolrecep/Developer/codebase/apps/scientific_python_workflow_hpc/notebooks/scientific_python_workflow_colab.ipynb).
+* Switch to a free cloud GPU: **Runtime** ➔ **Change runtime type** ➔ **T4 GPU** ➔ **Save**.
+* Follow the guided notebook cells to run `uv` bootstrapping, dataset verification, single-core, multi-core, and CUDA GPU batch acceleration with interactive charts!
+
+### 2. Local Environment (Linux / macOS)
 
 * `git` and `make`
-
 * Python 3.9+
-
 * `curl` (for installing `uv`: `curl -LsSf https://astral.sh/uv/install.sh | sh`)
-
 * Mamba / Micromamba (optional, if using the Mamba workflow)
-
-### Google Colab (Alternative)
-
-If you are on Windows without WSL, open a Google Colab notebook, mount your Google Drive, and open a terminal instance. (Free-tier users can run `!pip install colab-xterm` and `%xterm` to get an interactive terminal).
 
 ## ⚡ The Quickstart: One-Command Execution
 
