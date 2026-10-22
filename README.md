@@ -223,96 +223,55 @@ make all-uv
 Submit using: `sbatch job.sbatch`. Once complete, you can review `results/hpc_job_<ID>.out` and compare the cluster's execution metrics against your laptop's baseline!
 
 
-### Example Makefile for SLURM
+### Supercomputer SLURM Workflow (Rocky Linux & Modules)
+
+For deployment on shared resource supercomputers running **Rocky Linux**, **SLURM**, and **Lmod / Environment Modules**, we provide 3 dedicated production `.sbatch` scripts managed via `Makefile.sbatch`:
+
+| Script | Purpose | Allocation |
+| :--- | :--- | :--- |
+| **`sbatch/01_env_check.sbatch`** | Validates Rocky Linux, environment modules, bootstraps standalone `uv` directly from source, verifies dataset, and runs pytest. | 2 CPUs, 4GB RAM (`--partition=compute`) |
+| **`sbatch/02_single_core.sbatch`** | Runs strict single-core sequential baseline with thread pinning, generates Memray flamegraphs and Scalene CPU profiles. | 1 CPU, 4GB RAM (`--partition=compute`) |
+| **`sbatch/03_multicore_gpu.sbatch`** | Runs back-to-back 16-core parallel CPU scaling against hardware-accelerated NVIDIA CUDA GPU batch processing. | 16 CPUs, 1 GPU, 16GB RAM (`--partition=gpu`) |
+
+#### Managing & Submitting SLURM Jobs via `Makefile.sbatch`
 
 ```bash
-.PHONY: help submit status logs cancel clean-logs
+# 1. Run Job 1: Environment readiness and module check
+make -f Makefile.sbatch check
 
-# Explicitly set the default goal to 'help'
-.DEFAULT_GOAL := help
+# 2. Run Job 2: Strict single-core baseline and profiling
+make -f Makefile.sbatch single
 
-# Set default environment type to uv, but allow override (e.g., make -f Makefile.slurm submit ENV=mamba)
-ENV ?= uv
+# 3. Run Job 3: Back-to-back multi-core and GPU scaling run
+make -f Makefile.sbatch multi-gpu
 
-help: ## Show this help message and list of available SLURM commands
-  @echo "======================================================================"
-  @echo " HPC SLURM Manager"
-  @echo "======================================================================"
-  @echo "Usage: make -f Makefile.slurm [command] [ENV=uv|mamba]"
-  @echo ""
-  @echo "Available commands:"
-  @grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
-  @echo ""
+# 4. Run the FULL 3-stage automated pipeline with SLURM job dependencies:
+# (Job 2 runs only after Job 1 succeeds; Job 3 runs only after Job 2 succeeds)
+make -f Makefile.sbatch pipeline
 
-submit: ## Generate a SLURM script with appropriate module loads and submit it
-  @echo "Generating SLURM script for $(ENV) workflow..."
-  @echo "#!/bin/bash" > job_$(ENV).sbatch
-  @echo "#SBATCH --job-name=img_pipe_$(ENV)" >> job_$(ENV).sbatch
-  @echo "#SBATCH --output=results/hpc_job_%j.out" >> job_$(ENV).sbatch
-  @echo "#SBATCH --error=results/hpc_job_%j.err" >> job_$(ENV).sbatch
-  @echo "#SBATCH --time=00:30:00" >> job_$(ENV).sbatch
-  @echo "#SBATCH --nodes=1" >> job_$(ENV).sbatch
-  @echo "#SBATCH --ntasks=1" >> job_$(ENV).sbatch
-  @echo "#SBATCH --cpus-per-task=4" >> job_$(ENV).sbatch
-  @echo "#SBATCH --mem=8G" >> job_$(ENV).sbatch
-  @echo "#SBATCH --partition=compute" >> job_$(ENV).sbatch
-  @echo "" >> job_$(ENV).sbatch
-  @echo "# 1. Load required HPC modules" >> job_$(ENV).sbatch
-ifeq ($(ENV),mamba)
-  @echo "module purge" >> job_$(ENV).sbatch
-  @echo "module load mamba/latest" >> job_$(ENV).sbatch
-else
-  @echo "module purge" >> job_$(ENV).sbatch
-  @echo "module load python/3.10" >> job_$(ENV).sbatch
-  @echo "module load curl" >> job_$(ENV).sbatch
-endif
-  @echo "" >> job_$(ENV).sbatch
-  @echo "# 2. Run the master Makefile" >> job_$(ENV).sbatch
-  @echo "make all-$(ENV)" >> job_$(ENV).sbatch
-  @echo ""
-  @echo "✅ Generated job_$(ENV).sbatch. Submitting to queue..."
-  sbatch job_$(ENV).sbatch
-
-status: ## Check the status of your jobs in the SLURM queue
-  squeue -u $$USER
-
-logs: ## Tail the most recent SLURM output log (Ctrl+C to exit)
-  @latest_log=$$(ls -t results/hpc_job_*.out 2>/dev/null | head -n 1); \
-  if [ -z "$$latest_log" ]; then \
-    echo "No logs found in results/ directory yet."; \
-  else \
-    echo "Tailing $$latest_log..."; \
-    tail -f "$$latest_log"; \
-  fi
-
-cancel: ## Cancel ALL of your currently running or pending SLURM jobs
-  @read -p "Are you sure you want to cancel all your SLURM jobs? [y/N]: " ans; \
-  if [ "$$ans" = "y" ] || [ "$$ans" = "Y" ]; then \
-    scancel -u $$USER; \
-    echo "All jobs cancelled."; \
-  else \
-    echo "Aborted."; \
-  fi
-
-clean-logs: ## Delete all generated .sbatch scripts and SLURM output logs
-  rm -f job_uv.sbatch job_mamba.sbatch
-  rm -f results/hpc_job_*.out results/hpc_job_*.err
-  @echo "SLURM logs and generated batch scripts cleaned."
+# 5. Monitor and inspect jobs:
+make -f Makefile.sbatch status   # Check queue: squeue -u $USER
+make -f Makefile.sbatch logs     # Tail latest SLURM output log
+make -f Makefile.sbatch cancel   # Cancel all jobs: scancel -u $USER
 ```
 
-1. **Submission:**
-* Run `make -f Makefile.slurm submit` (defaults to `uv` and loads the standard `python` module).
-* Run `make -f Makefile.slurm submit ENV=mamba` (generates the script specifically with `module load mamba`).
+1. **Validation (`check`):**
+   * Submits `sbatch/01_env_check.sbatch` to verify Rocky Linux compatibility, load cluster modules, bootstrap `uv` if missing, verify datasets, and run pytest tests.
 
+2. **Single-Core Baseline (`single`):**
+   * Submits `sbatch/02_single_core.sbatch` with strict thread pinning (`OMP_NUM_THREADS=1`) to establish a ground-truth sequential execution speed and generate Memray flamegraphs & Scalene CPU profiles.
 
-2. **Monitoring:**
-* `make -f Makefile.slurm status` wraps `squeue`.
-* `make -f Makefile.slurm logs` automatically finds the newest `.out` file in your `results/` folder and `tail`s it so they can watch the output live.
+3. **Multi-Core & GPU Scaling (`multi-gpu`):**
+   * Submits `sbatch/03_multicore_gpu.sbatch` on a GPU node (`--partition=gpu --gpus=1 --cpus-per-task=16`), comparing multi-process CPU workers against CUDA-accelerated batch processing.
 
+4. **Automated Pipeline (`pipeline`):**
+   * Submits all 3 jobs sequentially using SLURM job dependencies (`--dependency=afterok:<jobid>`). Job 2 only runs after Job 1 completes successfully, and Job 3 runs after Job 2.
 
-3. **Safety:**
-* `make -f Makefile.slurm cancel` gives them an easy panic button (with a [y/N] prompt) to stop their jobs if they realize they made a mistake.
-
+5. **Monitoring & Management:**
+   * `make -f Makefile.sbatch status`: Inspect active jobs in the queue via `squeue`.
+   * `make -f Makefile.sbatch logs`: Automatically `tail -f` the most recent `.out` log in `results/`.
+   * `make -f Makefile.sbatch cancel`: Safely cancel queued/running jobs via `scancel`.
+   * `make -f Makefile.sbatch clean-logs`: Clean up old `.out` and `.err` logs.
 
 
 ## 📝 License
