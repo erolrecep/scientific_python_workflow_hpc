@@ -1,10 +1,13 @@
-.PHONY: help all-uv all-mamba env env-uv env-mamba data process test profile clean
+.PHONY: help all-uv all-mamba env env-uv env-mamba data data-synthetic process benchmark test profile clean
 
 # Explicitly set the default goal to 'help'
 .DEFAULT_GOAL := help
 
-# Set default environment type to uv, but allow override
+# Configuration variables
 ENV ?= uv
+WORKERS ?= 4
+MAX_IMAGES ?= 200
+BACKEND ?= opencv
 
 # Dynamically set paths based on the chosen environment. 
 # Mamba requires the ./ prefix to force a local directory installation.
@@ -20,50 +23,53 @@ help: ## Show this help message and list of available commands
 	@echo "======================================================================"
 	@echo " Workshop: Managing Scientific Python Environments on HPC"
 	@echo "======================================================================"
-	@echo "Usage: make [command]"
+	@echo "Usage: make [command] [ENV=uv|mamba] [WORKERS=N] [BACKEND=opencv|pillow|pytorch]"
 	@echo ""
 	@echo "Available commands:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 
-all-uv: ## Run the entire workflow using 'uv' as the environment manager
+all-uv: ## Run the entire multi-core workflow using 'uv' as the environment manager
 	$(MAKE) ENV=uv process test profile
 
-all-mamba: ## Run the entire workflow using 'mamba' as the environment manager
+all-mamba: ## Run the entire multi-core workflow using 'mamba' as the environment manager
 	$(MAKE) ENV=mamba process test profile
 
 # Meta-target that routes to the correct environment builder
 env: env-$(ENV)
 
 env-uv: ## Create the virtual environment using uv
-	uv venv $(VENV_DIR)
-	uv pip install --python $(PYTHON) -r requirements.txt
+	@if [ ! -d "$(VENV_DIR)" ]; then \
+		uv venv $(VENV_DIR) && \
+		uv pip install --python $(PYTHON) -r requirements.txt; \
+	fi
 
 env-mamba: ## Create the virtual environment using mamba
-	mamba create -y -p $(VENV_DIR) python=3.10
-	$(PYTHON) -m pip install -r requirements.txt
-
-data: ## Download and extract the VGG 17flowers dataset using curl
-	mkdir -p data
-	@if [ ! -f data/17flowers.tgz ]; then \
-		echo "Downloading dataset..."; \
-		curl -L -o data/17flowers.tgz https://www.robots.ox.ac.uk/~vgg/data/flowers/17/17flowers.tgz; \
-	else \
-		echo "Dataset archive already exists. Skipping download."; \
+	@if [ ! -d "$(VENV_DIR)" ]; then \
+		mamba create -y -p $(VENV_DIR) python=3.10 && \
+		$(PYTHON) -m pip install -r requirements.txt; \
 	fi
-	tar -xzf data/17flowers.tgz -C data/
 
-process: env data ## Run the image processing pipeline (OpenCV, Pillow, PyTorch)
-	$(PYTHON) src/process_images.py
+data: env ## Download and extract the VGG 17flowers dataset
+	$(PYTHON) src/download_data.py
 
-test: env ## Run pytest unit tests to verify image output dimensions
+data-synthetic: env ## Generate synthetic test images (instant offline / CI mode)
+	$(PYTHON) src/download_data.py --synthetic --num-synthetic $(MAX_IMAGES)
+
+process: env data ## Run the multi-core image processing pipeline across CPU cores
+	$(PYTHON) src/process_images.py --workers $(WORKERS) --max-images $(MAX_IMAGES) --backend $(BACKEND)
+
+benchmark: env data ## Run 1-core vs multi-core scaling and throughput benchmark
+	$(PYTHON) src/process_images.py --benchmark --workers $(WORKERS) --max-images $(MAX_IMAGES) --backend $(BACKEND)
+
+test: env ## Run pytest unit tests to verify image output dimensions and multi-core processing
 	$(PYTHON) -m pytest tests/
 
-profile: env data ## Run CPU (Scalene) and Memory (Memray) profilers
+profile: env data ## Run CPU (Scalene) and Memory (Memray) profilers on the pipeline
 	mkdir -p results
-	$(PYTHON) -m memray run -f -o results/memray_profile.bin src/process_images.py
+	$(PYTHON) -m memray run -f -o results/memray_profile.bin src/process_images.py --workers $(WORKERS) --max-images 50 --no-verify
 	$(PYTHON) -m memray flamegraph -f results/memray_profile.bin
-	$(PYTHON) -m scalene run --outfile results/scalene_profile.json src/process_images.py
+	$(PYTHON) -m scalene run --cpu-only -o results/scalene_profile.json src/process_images.py --- --workers $(WORKERS) --max-images 50 --no-verify
 	@echo ""
 	@echo "======================================================================"
 	@echo "✅ PROFILING COMPLETE!"

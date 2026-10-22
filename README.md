@@ -19,9 +19,11 @@ The core philosophy of this workshop is: **Experiment and debug locally, automat
 
 2. **Workflow Automation:** Use `make` to build an idempotent, automated Directed Acyclic Graph (DAG) for data processing.
 
-3. **Cross-Verification:** Process images using multiple libraries (OpenCV, Pillow, PyTorch) and calculate pixel differences to understand the importance of reproducibility.
+3. **Multi-Core Scaling:** Scale Python workloads across all allocated CPU cores (`ProcessPoolExecutor`) while avoiding thread oversubscription and respecting SLURM cgroups (`SLURM_CPUS_PER_TASK`).
 
-4. **Code Profiling:** Measure CPU, RAM, and Disk I/O bottlenecks using `scalene` and `memray` before deploying to an HPC cluster.
+4. **Cross-Verification:** Process images using multiple libraries (OpenCV, Pillow, PyTorch) and calculate pixel differences to understand the importance of reproducibility.
+
+5. **Code Profiling:** Measure CPU, RAM, and Disk I/O bottlenecks using `scalene` and `memray` before deploying to an HPC cluster.
 
 ## 🚀 Prerequisites
 
@@ -105,6 +107,49 @@ Pillow vs PyTorch | Mean Diff:  1.01 pixels | Max Diff:  12.8 pixels
 
 Conclusion: The exact same operations yield different pixel values.
 This proves why strict environment pinning is mandatory for scientific reproducibility!
+```
+
+## ⚡ Multi-Core Scaling & Benchmarking
+
+Scientific computing on HPC is fundamentally parallel. Running Python sequentially wastes costly multi-core allocations. Our pipeline implements **embarrassingly parallel batch processing** with critical HPC optimizations:
+
+### 1. Accurate Core Allocation Detection
+Instead of blindly calling `os.cpu_count()` (which returns all cores on a shared node and causes severe cgroup quota thrashing), our pipeline inspects:
+1. `SLURM_CPUS_PER_TASK` / `SLURM_CPUS_ON_NODE`
+2. `os.sched_getaffinity(0)` (Linux CPU cgroups)
+3. Host CPU count (fallback)
+
+### 2. Anti-Oversubscription Worker Initialization
+A classic HPC trap is *thread oversubscription*: if 4 worker processes each spawn 8 threads via OpenCV, OpenMP, or PyTorch, 32 threads fight for 4 cores. Our worker initializer restricts child libraries to single-threaded mode:
+```python
+os.environ["OMP_NUM_THREADS"] = "1"
+cv2.setNumThreads(1)
+torch.set_num_threads(1)
+```
+
+### 3. Chunked Task Distribution
+Images are batched into contiguous slices per worker process, eliminating 99% of inter-process serialization (IPC) overhead.
+
+### 4. Running the Multi-Core Benchmark
+```bash
+# Run the 1-core vs. N-core scaling benchmark:
+make benchmark WORKERS=4 MAX_IMAGES=500
+
+# Run batch processing with custom workers and backend:
+make process WORKERS=8 BACKEND=opencv
+```
+
+**Benchmark Sample Output (Apple Silicon):**
+```text
+----------------------------------------------------------------------
+Mode               | Workers  | Wall Time    | Throughput      | Speedup 
+----------------------------------------------------------------------
+Single-Core        | 1        |   0.303 s    | 1652.5 img/s    | 1.00x
+Multi-Core (HPC)   | 4        |   0.082 s    | 6127.2 img/s    | 3.71x
+----------------------------------------------------------------------
+🎉 Scaling Factor:   3.71x speedup across 4 cores
+⚡ Parallel Efficiency: 92.7%
+----------------------------------------------------------------------
 ```
 
 ## 📊 Profiling: What to Expect
