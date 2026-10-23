@@ -283,7 +283,7 @@ Submit using: `sbatch job.sbatch`. Once complete, you can review `results/hpc_jo
 
 ### Supercomputer SLURM Workflow (Rocky Linux & Modules)
 
-For deployment on shared resource supercomputers running **Rocky Linux**, **SLURM**, and **Lmod / Environment Modules**, we provide 3 dedicated production `.sbatch` scripts managed via `Makefile.sbatch`:
+For deployment on shared resource supercomputers running **Rocky Linux**, **SLURM**, and **Lmod / Environment Modules**, we provide 3 dedicated production `.sbatch` scripts in the `sbatch/` directory:
 
 | Script | Purpose | Allocation |
 | :--- | :--- | :--- |
@@ -291,45 +291,36 @@ For deployment on shared resource supercomputers running **Rocky Linux**, **SLUR
 | **`sbatch/02_single_core.sbatch`** | Runs strict single-core sequential baseline with thread pinning, generates Memray flamegraphs and Scalene CPU profiles. | 1 CPU, 4GB RAM (`--partition=compute`) |
 | **`sbatch/03_multicore_gpu.sbatch`** | Runs back-to-back 16-core parallel CPU scaling against hardware-accelerated NVIDIA CUDA GPU batch processing. | 16 CPUs, 1 GPU, 16GB RAM (`--partition=gpu`) |
 
-#### Managing & Submitting SLURM Jobs via `Makefile.sbatch`
+#### Submitting & Managing SLURM Jobs
 
 ```bash
 # 1. Run Job 1: Environment readiness and module check
-make -f Makefile.sbatch check
+sbatch sbatch/01_env_check.sbatch
 
 # 2. Run Job 2: Strict single-core baseline and profiling
-make -f Makefile.sbatch single
+sbatch sbatch/02_single_core.sbatch
 
 # 3. Run Job 3: Back-to-back multi-core and GPU scaling run
-make -f Makefile.sbatch multi-gpu
+sbatch sbatch/03_multicore_gpu.sbatch
 
-# 4. Run the FULL 3-stage automated pipeline with SLURM job dependencies:
-# (Job 2 runs only after Job 1 succeeds; Job 3 runs only after Job 2 succeeds)
-make -f Makefile.sbatch pipeline
+# 4. Monitor and inspect active jobs:
+squeue -u $USER
 
-# 5. Monitor and inspect jobs:
-make -f Makefile.sbatch status   # Check queue: squeue -u $USER
-make -f Makefile.sbatch logs     # Tail latest SLURM output log
-make -f Makefile.sbatch cancel   # Cancel all jobs: scancel -u $USER
+# 5. Tail output logs:
+tail -f results/*.out
+
+# 6. Cancel running jobs if needed:
+scancel -u $USER
 ```
 
-1. **Validation (`check`):**
-   * Submits `sbatch/01_env_check.sbatch` to verify Rocky Linux compatibility, load cluster modules, bootstrap `uv` if missing, verify datasets, and run pytest tests.
+1. **Validation (`01_env_check.sbatch`):**
+   * Verifies Rocky Linux compatibility, loads cluster modules, bootstraps `uv` if missing, verifies datasets, and runs pytest test suites.
 
-2. **Single-Core Baseline (`single`):**
-   * Submits `sbatch/02_single_core.sbatch` with strict thread pinning (`OMP_NUM_THREADS=1`) to establish a ground-truth sequential execution speed and generate Memray flamegraphs & Scalene CPU profiles.
+2. **Single-Core Baseline (`02_single_core.sbatch`):**
+   * Enforces strict thread pinning (`OMP_NUM_THREADS=1`) to establish a ground-truth sequential execution speed and generates Memray memory flamegraphs & Scalene CPU profiles.
 
-3. **Multi-Core & GPU Scaling (`multi-gpu`):**
-   * Submits `sbatch/03_multicore_gpu.sbatch` on a GPU node (`--partition=gpu --gpus=1 --cpus-per-task=16`), comparing multi-process CPU workers against CUDA-accelerated batch processing.
-
-4. **Automated Pipeline (`pipeline`):**
-   * Submits all 3 jobs sequentially using SLURM job dependencies (`--dependency=afterok:<jobid>`). Job 2 only runs after Job 1 completes successfully, and Job 3 runs after Job 2.
-
-5. **Monitoring & Management:**
-   * `make -f Makefile.sbatch status`: Inspect active jobs in the queue via `squeue`.
-   * `make -f Makefile.sbatch logs`: Automatically `tail -f` the most recent `.out` log in `results/`.
-   * `make -f Makefile.sbatch cancel`: Safely cancel queued/running jobs via `scancel`.
-   * `make -f Makefile.sbatch clean-logs`: Clean up old `.out` and `.err` logs.
+3. **Multi-Core & GPU Scaling (`03_multicore_gpu.sbatch`):**
+   * Runs on a GPU node (`--partition=gpu --gpus=1 --cpus-per-task=16`), comparing multi-process CPU workers against CUDA-accelerated batch processing.
 
 
 ## 📝 License
