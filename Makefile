@@ -1,4 +1,7 @@
-.PHONY: help all-uv all-mamba env env-uv env-mamba data data-synthetic process process-gpu benchmark benchmark-all test profile clean
+.PHONY: help all-uv all-mamba check-uv check-mamba env env-uv env-mamba data data-synthetic process process-gpu benchmark benchmark-all test profile clean
+
+# Ensure user-installed binaries (~/.local/bin and ~/.cargo/bin) are on PATH for all subshells
+export PATH := $(HOME)/.local/bin:$(HOME)/.cargo/bin:$(PATH)
 
 # Explicitly set the default goal to 'help'
 .DEFAULT_GOAL := help
@@ -28,25 +31,67 @@ help: ## Show this help message and list of available commands
 	@echo "Usage: make [command] [ENV=uv|mamba] [WORKERS=N] [BACKEND=opencv|pillow|pytorch]"
 	@echo ""
 	@echo "Available commands:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 
-all-uv: ## Run the entire multi-core workflow using 'uv' as the environment manager
+check-uv: ## Check if uv is installed; if missing, automatically download and install it
+	@if ! command -v uv >/dev/null 2>&1; then \
+		echo "======================================================================"; \
+		echo "⚡ 'uv' package manager not found in PATH."; \
+		echo "📦 'uv' is an ultra-fast Python environment manager required for this workshop."; \
+		echo "🚀 Automatically installing uv via official Astral installer..."; \
+		echo "======================================================================"; \
+		if command -v curl >/dev/null 2>&1; then \
+			curl -LsSf https://astral.sh/uv/install.sh | sh; \
+		elif command -v wget >/dev/null 2>&1; then \
+			wget -qO- https://astral.sh/uv/install.sh | sh; \
+		elif command -v python3 >/dev/null 2>&1; then \
+			python3 -m pip install --user uv; \
+		else \
+			echo "❌ Error: Neither curl, wget, nor python3 were found to install uv."; \
+			echo "👉 Please install uv manually: https://docs.astral.sh/uv/"; \
+			exit 1; \
+		fi; \
+		if ! command -v uv >/dev/null 2>&1; then \
+			echo "❌ Error: uv installation finished, but 'uv' binary could not be found in PATH."; \
+			echo "👉 Ensure $(HOME)/.local/bin is added to your shell PATH (e.g. in ~/.bashrc or ~/.zshrc)."; \
+			exit 1; \
+		fi; \
+		echo "✅ 'uv' installed successfully at: $$(which uv) ($$(uv --version))"; \
+		echo "======================================================================"; \
+	else \
+		echo "✅ 'uv' is installed and ready: $$(which uv) ($$(uv --version))"; \
+	fi
+
+check-mamba: ## Check if mamba or micromamba is installed
+	@if ! command -v mamba >/dev/null 2>&1 && ! command -v micromamba >/dev/null 2>&1; then \
+		echo "======================================================================"; \
+		echo "⚠️  'mamba' or 'micromamba' not found in PATH."; \
+		echo "👉 To use Mamba, install Miniforge: https://github.com/conda-forge/miniforge"; \
+		echo "💡 Or simply use 'make all-uv' for instant zero-config Python speed!"; \
+		echo "======================================================================"; \
+		exit 1; \
+	else \
+		echo "✅ 'mamba'/'micromamba' is installed and ready: $$(which mamba 2>/dev/null || which micromamba 2>/dev/null)"; \
+	fi
+
+all-uv: check-uv ## Run the entire multi-core workflow using 'uv' as the environment manager (auto-installs uv if missing)
 	$(MAKE) ENV=uv process test profile
 
-all-mamba: ## Run the entire multi-core workflow using 'mamba' as the environment manager
+all-mamba: check-mamba ## Run the entire multi-core workflow using 'mamba' as the environment manager
 	$(MAKE) ENV=mamba process test profile
 
 # Meta-target that routes to the correct environment builder
 env: env-$(ENV)
 
-env-uv: ## Create the virtual environment using uv
+env-uv: check-uv ## Create the virtual environment using uv (auto-installs uv if missing)
 	@if [ ! -d "$(VENV_DIR)" ]; then \
+		echo "📦 Creating virtual environment $(VENV_DIR) with uv..."; \
 		uv venv $(VENV_DIR) && \
 		uv pip install --python $(PYTHON) -r requirements.txt; \
 	fi
 
-env-mamba: ## Create the virtual environment using mamba
+env-mamba: check-mamba ## Create the virtual environment using mamba
 	@if [ ! -d "$(VENV_DIR)" ]; then \
 		mamba create -y -p $(VENV_DIR) python=3.10 && \
 		$(PYTHON) -m pip install -r requirements.txt; \

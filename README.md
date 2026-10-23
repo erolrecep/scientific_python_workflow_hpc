@@ -48,7 +48,7 @@ The core philosophy of this workshop is: **Experiment and debug locally, automat
 
 * `git` and `make`
 * Python 3.9+
-* `curl` (for installing `uv`: `curl -LsSf https://astral.sh/uv/install.sh | sh`)
+* `curl` (used by `make all-uv` to auto-install `uv` if missing)
 * Mamba / Micromamba (optional, if using the Mamba workflow)
 
 ## ⚡ The Quickstart: One-Command Execution
@@ -60,6 +60,12 @@ Our master `Makefile` orchestrates the entire workflow. You can choose your pref
   ```bash
   make all-uv
   ```
+
+  > 💡 **Zero-Config for Non-CS Attendees:**  
+  > You do not need to figure out how to install `uv` beforehand! If `uv` is not detected on your system, `make all-uv` (and `make env-uv`) automatically downloads and installs standalone `uv` via the official Astral installer into `~/.local/bin`, ensures it is on `PATH`, and proceeds seamlessly. You can also verify or trigger this check standalone anytime with:  
+  > ```bash
+  > make check-uv
+  > ```
 
 * **To run using `mamba` (Recommended for complex C/C++ system binaries):**
 
