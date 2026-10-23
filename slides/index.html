@@ -1,0 +1,1346 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Managing Scientific Python Environments and Workflows on HPC</title>
+  <meta name="description"
+    content="Workshop: Managing Scientific Python Environments and Workflows on HPC Systems by Dr. Recep Erol" />
+  <meta name="author" content="Dr. Recep Erol" />
+
+  <!-- Reveal.js Core Styles -->
+  <link rel="stylesheet" href="dist/reset.css" />
+  <link rel="stylesheet" href="dist/reveal.css" />
+  <link rel="stylesheet" href="dist/theme/dracula.css" id="theme" />
+
+  <!-- Code Syntax Highlighting -->
+  <link rel="stylesheet" href="dist/plugin/highlight/monokai.css" />
+
+  <!-- Google Fonts: Inter & Fira Code -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@300;400;600;700;800&display=swap"
+    rel="stylesheet">
+
+  <!-- Custom Presentation Styles -->
+  <style>
+    :root {
+      --primary: #38bdf8;
+      --primary-glow: rgba(56, 189, 248, 0.35);
+      --secondary: #a855f7;
+      --accent: #34d399;
+      --warning: #fbbf24;
+      --danger: #f87171;
+      --bg-dark: #0b0f19;
+      --card-bg: rgba(17, 24, 39, 0.75);
+      --card-border: rgba(255, 255, 255, 0.1);
+    }
+
+    .reveal {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      color: #f1f5f9;
+      background: radial-gradient(circle at 50% 20%, #1e1b4b 0%, #0f172a 45%, #050811 100%);
+    }
+
+    .reveal h1,
+    .reveal h2,
+    .reveal h3,
+    .reveal h4 {
+      font-family: 'Inter', sans-serif;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      text-transform: none;
+      color: #ffffff;
+    }
+
+    .reveal h1 {
+      font-size: 1.75em;
+      line-height: 1.15;
+    }
+
+    .reveal h2 {
+      font-size: 1.25em;
+      margin-bottom: 0.35em;
+    }
+
+    .reveal h3 {
+      font-size: 1.05em;
+    }
+
+    .reveal pre {
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      font-size: 0.42em;
+      width: 100%;
+      margin: 8px 0;
+      box-sizing: border-box;
+    }
+
+    .reveal pre code {
+      font-family: 'Fira Code', monospace;
+      padding: 10px 14px;
+      line-height: 1.35;
+      max-height: 480px;
+      overflow-x: auto;
+      box-sizing: border-box;
+    }
+
+    /* Badges & Pills */
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 12px;
+      font-size: 0.44em;
+      font-weight: 600;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #e2e8f0;
+      margin: 3px;
+    }
+
+    .badge-pill.cyan {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: rgba(56, 189, 248, 0.4);
+      color: #7dd3fc;
+    }
+
+    .badge-pill.purple {
+      background: rgba(168, 85, 247, 0.15);
+      border-color: rgba(168, 85, 247, 0.4);
+      color: #d8b4fe;
+    }
+
+    .badge-pill.green {
+      background: rgba(52, 211, 153, 0.15);
+      border-color: rgba(52, 211, 153, 0.4);
+      color: #6ee7b7;
+    }
+
+    .badge-pill.amber {
+      background: rgba(251, 191, 36, 0.15);
+      border-color: rgba(251, 191, 36, 0.4);
+      color: #fde68a;
+    }
+
+    /* Glass Cards & Grids */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+      text-align: left;
+      margin-top: 10px;
+    }
+
+    .card-grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      text-align: left;
+      margin-top: 10px;
+      max-width: 1080px;
+      margin-left: auto;
+      margin-right: auto;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .card-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      text-align: left;
+      margin-top: 10px;
+      max-width: 1080px;
+      margin-left: auto;
+      margin-right: auto;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .glass-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+      min-width: 0;
+      box-sizing: border-box;
+    }
+
+    .card-grid-2 .glass-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100%;
+    }
+
+    .reveal .card-grid-2 pre {
+      font-size: 0.38em !important;
+      margin: 8px 0 0 0 !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+
+    .reveal .card-grid-2 pre code {
+      padding: 8px 10px !important;
+      line-height: 1.35 !important;
+      overflow-x: auto !important;
+    }
+
+    .card-grid-3 .glass-card {
+      padding: 16px 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100%;
+    }
+
+    .reveal .card-grid-3 pre {
+      font-size: 0.35em !important;
+      margin: 8px 0 0 0 !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+
+    .reveal .card-grid-3 pre code {
+      padding: 8px 10px !important;
+      line-height: 1.4 !important;
+      white-space: pre !important;
+      overflow-x: auto !important;
+    }
+
+    .glass-card h4 {
+      font-size: 0.72em;
+      margin-top: 0;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #38bdf8;
+    }
+
+    .glass-card p,
+    .glass-card ul {
+      font-size: 0.52em;
+      line-height: 1.45;
+      margin: 0;
+      color: #cbd5e1;
+    }
+
+    .glass-card ul {
+      padding-left: 18px;
+    }
+
+    .glass-card li {
+      margin-bottom: 5px;
+    }
+
+    /* Comparison Tables */
+    .reveal table.custom-table {
+      width: 100%;
+      max-width: 1080px;
+      margin: 12px auto;
+      border-collapse: collapse;
+      font-size: 0.52em;
+      background: rgba(15, 23, 42, 0.65);
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-sizing: border-box;
+    }
+
+    .reveal table.custom-table th {
+      background: rgba(30, 41, 59, 0.9);
+      color: #38bdf8;
+      padding: 12px 14px;
+      font-weight: 700;
+      border-bottom: 2px solid rgba(56, 189, 248, 0.3);
+      text-align: left;
+    }
+
+    .reveal table.custom-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      color: #e2e8f0;
+    }
+
+    .reveal table.custom-table tr:hover td {
+      background: rgba(56, 189, 248, 0.08);
+    }
+
+    .reveal table.custom-table.compact th {
+      padding: 7px 10px;
+    }
+
+    .reveal table.custom-table.compact td {
+      padding: 5px 10px;
+    }
+
+    .highlight-cell {
+      color: #34d399 !important;
+      font-weight: 700;
+    }
+
+    /* Callouts & Quotes */
+    .callout-box {
+      background: rgba(56, 189, 248, 0.08);
+      border-left: 4px solid #38bdf8;
+      padding: 12px 18px;
+      border-radius: 0 10px 10px 0;
+      font-size: 0.64em;
+      text-align: left;
+      margin: 12px auto;
+      max-width: 1080px;
+      width: 100%;
+      box-sizing: border-box;
+      color: #e2e8f0;
+    }
+
+    .callout-box.warning {
+      background: rgba(251, 191, 36, 0.08);
+      border-left-color: #fbbf24;
+    }
+
+    .callout-box.success {
+      background: rgba(52, 211, 153, 0.08);
+      border-left-color: #34d399;
+    }
+
+    /* Bio Section */
+    .bio-container {
+      display: flex;
+      align-items: center;
+      gap: 36px;
+      text-align: left;
+      background: var(--card-bg);
+      padding: 28px;
+      border-radius: 16px;
+      border: 1px solid var(--card-border);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .bio-avatar {
+      width: 170px;
+      height: 170px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid #38bdf8;
+      box-shadow: 0 0 25px var(--primary-glow);
+    }
+
+    .bio-details h3 {
+      margin: 0 0 6px 0;
+      font-size: 1.15em;
+      color: #ffffff;
+    }
+
+    .bio-details .subtitle {
+      color: #38bdf8;
+      font-size: 0.72em;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .bio-details p {
+      font-size: 0.58em;
+      margin: 4px 0;
+      color: #cbd5e1;
+    }
+
+    .bio-details a {
+      color: #7dd3fc;
+      text-decoration: none;
+    }
+
+    .bio-details a:hover {
+      text-decoration: underline;
+    }
+
+    /* Gradient Text */
+    .gradient-text {
+      background: linear-gradient(135deg, #38bdf8 0%, #a855f7 60%, #ec4899 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .gradient-text-green {
+      background: linear-gradient(135deg, #34d399 0%, #38bdf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .key-metric {
+      font-size: 2.1em;
+      font-weight: 800;
+      color: #38bdf8;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    /* Slide Footer */
+    .deck-footer {
+      position: absolute;
+      bottom: 16px;
+      left: 24px;
+      font-size: 0.42em;
+      color: rgba(255, 255, 255, 0.4);
+      z-index: 10;
+      letter-spacing: 0.05em;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="reveal">
+    <div class="deck-footer">Managing Scientific Python on HPC • Dr. Recep Erol (Rice CRC)</div>
+    <div class="slides">
+
+      <!-- SLIDE 1: Title Slide -->
+      <section>
+        <div style="margin-bottom: 18px;">
+          <span class="badge-pill cyan">⚡ Python 3.9+</span>
+          <span class="badge-pill purple">⚙️ GNU Make</span>
+          <span class="badge-pill green">📦 uv | micromamba</span>
+          <span class="badge-pill amber">🚀 SLURM Ready</span>
+          <span class="badge-pill cyan">☁️ Colab GPU</span>
+        </div>
+        <h1 style="font-size: 1.85em; margin-bottom: 12px;">
+          Managing <span class="gradient-text">Scientific Python</span><br>Environments & Workflows on HPC
+        </h1>
+        <p style="font-size: 0.72em; color: #94a3b8; font-weight: 400; margin-bottom: 24px;">
+          The Journey of Scaling Up: From Local Prototyping to Automated Cluster Scaling
+        </p>
+
+        <div style="font-size: 0.58em; color: #cbd5e1; line-height: 1.6;">
+          <p><strong>Dr. Recep Erol</strong> • Computational Scientist for AI<br>
+            Center for Research Computing (CRC) • Rice University<br>
+            <span style="color: #64748b;">Workshop Date: October 2026</span>
+          </p>
+        </div>
+
+        <aside class="notes">
+          Welcome everyone! This workshop is all about transitioning scientific Python code from local laptops or Google
+          Colab into reproducible, scalable High-Performance Computing (HPC) workflows.
+        </aside>
+      </section>
+
+      <!-- SLIDE 2: About Me / Contact Information -->
+      <section>
+        <div class="bio-container" style="max-width: 820px; margin: 0 auto; padding: 36px 44px;">
+          <img class="bio-avatar"
+            src="https://raw.githubusercontent.com/erolrecep/VibeCoding-Workshop/main/images/avatar.jpeg"
+            alt="Recep Erol, PhD" style="width: 190px; height: 190px;" />
+          <div class="bio-details" style="line-height: 1.7;">
+            <h3 style="font-size: 1.3em; margin: 0 0 4px 0; color: #ffffff;">Recep Erol, PhD</h3>
+            <div class="subtitle" style="font-size: 0.75em; color: #38bdf8; font-weight: 600; margin-bottom: 12px;">
+              Computational Scientist for AI</div>
+            <p style="font-size: 0.65em; margin: 6px 0;">
+              🏛️ <a href="https://researchcomputing.rice.edu/" target="_blank">Center for Research Computing (CRC) •
+                Rice University</a>
+            </p>
+            <p style="font-size: 0.65em; margin: 6px 0;">
+              📧 <a href="mailto:re51@rice.edu">re51@rice.edu</a>
+            </p>
+            <p style="font-size: 0.65em; margin: 6px 0;">
+              🔗 <a href="https://linkedin.com/in/erolrecep" target="_blank">linkedin.com/in/erolrecep</a>
+            </p>
+            <p style="font-size: 0.65em; margin: 6px 0;">
+              💻 <a href="https://github.com/erolrecep" target="_blank">github.com/erolrecep</a>
+            </p>
+            <p style="font-size: 0.65em; margin: 6px 0;">
+              🌐 <a href="https://erolrecep.github.io" target="_blank">erolrecep.github.io</a>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 3: Checklist & Setup -->
+      <section>
+        <div style="max-width: 1080px; margin: 0 auto; width: 100%;">
+          <h2>Workshop Checklist & Setup</h2>
+          <div class="card-grid-2" style="margin: 10px auto 0;">
+            <div class="glass-card">
+              <h4 style="min-height: 2em;">💻 Local Machine (macOS / Linux)</h4>
+              <ul>
+                <li>Terminal with <code>git</code> and <code>make</code> installed.</li>
+                <li>Python 3.9+ runtime available.</li>
+                <li>Internet connection (for initial package downloads).</li>
+                <li>Clone the repository:
+                  <pre style="margin-top: 6px; font-size: 0.38em;"><code class="language-bash">git clone \
+  https://github.com/erolrecep/scientific_python_workflow_hpc.git
+cd scientific_python_workflow_hpc</code></pre>
+                </li>
+              </ul>
+            </div>
+
+            <div class="glass-card">
+              <h4 style="min-height: 2em;">☁️ Google Colab (Windows / No-Install)</h4>
+              <ul>
+                <li><strong>Zero local setup required!</strong> Ideal for Windows or Chromebook attendees.</li>
+                <li>Free access to cloud Linux containers + <strong>NVIDIA Tesla T4 GPU</strong>.</li>
+                <li>Open directly from your browser:
+                  <div style="margin: 6px 0;">
+                    <a href="https://colab.research.google.com/github/erolrecep/scientific_python_workflow_hpc/blob/main/notebooks/scientific_python_workflow_colab.ipynb"
+                      target="_blank">
+                      <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab"
+                        style="height: 24px;">
+                    </a>
+                  </div>
+                </li>
+                <li>Under <em>Runtime</em> ➔ <em>Change runtime type</em> ➔ Select <strong>T4 GPU</strong>.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <aside class="notes">
+          If you are on Windows without WSL2, or do not have a dedicated GPU locally, click the Colab badge. Everything
+          works seamlessly in the cloud.
+        </aside>
+      </section>
+
+      <!-- SLIDE 4: Importance -->
+      <section>
+        <div style="max-width: 1080px; margin: 0 auto; width: 100%;">
+          <h2>Why This Matters: The Importance</h2>
+          <p style="font-size: 0.58em; color: #94a3b8; margin: 0 auto 12px auto; max-width: 850px;">
+            Transitioning from ad-hoc scripts to disciplined, reproducible workflows on High-Performance Computing systems.
+          </p>
+
+          <div class="card-grid-3" style="margin: 0 auto; gap: 16px;">
+            <div class="glass-card fragment fade-up">
+              <h4 style="color: #38bdf8; min-height: 2.2em;">🔬 Scientific Integrity</h4>
+              <ul>
+                <li><strong>Reproducibility:</strong> Hermetic environments eliminate "works on my machine" failures across clusters.</li>
+                <li><strong>Modern Tool Usage:</strong> Leveraging purpose-built tools (<code>uv</code>, <code>micromamba</code>) over legacy hacks.</li>
+                <li><strong>Scientific Computing Mindset:</strong> Treating computational code with the exact same rigor as wet-lab experiments.</li>
+              </ul>
+            </div>
+
+            <div class="glass-card fragment fade-up">
+              <h4 style="color: #a855f7; min-height: 2.2em;">⚡ Performance & Automation</h4>
+              <ul>
+                <li><strong>Parallel Programming:</strong> Bypassing GIL bottlenecks to saturate all allocated CPU and GPU cores.</li>
+                <li><strong>Code Profiling:</strong> Uncovering CPU and RAM memory leaks <em>before</em> submitting 24-hour batch jobs.</li>
+                <li><strong>Make for Automation:</strong> Idempotent DAG execution prevents redundant recomputation and human error.</li>
+              </ul>
+            </div>
+
+            <div class="glass-card fragment fade-up">
+              <h4 style="color: #34d399; min-height: 2.2em;">🏢 Cluster Citizenship</h4>
+              <ul>
+                <li><strong>Shared Resource Usage:</strong> Multi-tenant etiquette—never choke shared login nodes or thrash cgroups.</li>
+                <li><strong>Accurate Allocation:</strong> Requesting exact CPU cores and memory sizes without node hoarding.</li>
+                <li><strong>Modules & SLURM:</strong> Seamless translation from local development into institutional cluster schedulers.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <aside class="notes">
+          Slide 4: Importance. Emphasize that scientific computing on HPC is not just about speed—it is about scientific reproducibility, respectful shared cluster usage, and predictable automation.
+        </aside>
+      </section>
+
+      <!-- SLIDE 5: The HPC Philosophy -->
+      <section>
+        <div style="max-width: 1080px; margin: 0 auto; width: 100%;">
+          <h2>The Core HPC Philosophy</h2>
+          <div class="callout-box" style="font-size: 0.85em; text-align: center; margin: 10px 0 16px 0; width: 100%; box-sizing: border-box;">
+            <em>"Experiment and debug locally. Automate and scale globally."</em>
+          </div>
+
+          <div class="card-grid-2" style="margin: 0 auto;">
+            <div class="glass-card">
+              <h4 style="color: #fbbf24; min-height: 2em;">💻 Local Laptop / Dev Node</h4>
+              <ul>
+                <li>Interactive experimentation and REPL debugging.</li>
+                <li>Small dataset slices (10 to 100 samples).</li>
+                <li>Fail fast, iterate quickly, inspect intermediate tensors.</li>
+                <li>Verify memory footprint before submitting jobs.</li>
+              </ul>
+            </div>
+
+            <div class="glass-card">
+              <h4 style="color: #38bdf8; min-height: 2em;">🏢 HPC Cluster / Compute Nodes</h4>
+              <ul>
+                <li>Non-interactive batch execution via SLURM scheduler.</li>
+                <li>Full dataset scale (10,000+ files, Terabytes of data).</li>
+                <li><strong>Zero GUI:</strong> everything driven by scripts and Makefiles.</li>
+                <li><strong style="color: #f87171;">Golden Rule:</strong> NEVER run heavy computation on login nodes!</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <aside class="notes">
+          Login nodes are strictly shared portals for file editing and job submission. A runaway Python script on a
+          login node slows down the entire institution.
+        </aside>
+      </section>
+
+      <!-- SLIDE 6: The Environment Crisis -->
+      <section>
+        <div style="max-width: 1080px; margin: 0 auto; width: 100%;">
+          <h2>The Scientific Environment Crisis</h2>
+          <div class="callout-box warning" style="margin: 8px 0 10px 0; width: 100%; box-sizing: border-box;">
+            <strong>Why classic <code>pip install</code> and Anaconda fail on HPC clusters:</strong>
+          </div>
+
+          <div class="card-grid-3" style="margin: 0 auto;">
+            <div class="glass-card">
+              <h4 style="color: #f87171; min-height: 2.2em;">💥 Resolution Failures</h4>
+              <p>Standard <code>pip</code> struggles to resolve complex compiled C/C++, CUDA, and Fortran extensions
+                without compiler mismatches on CentOS/Rocky Linux nodes.</p>
+            </div>
+
+            <div class="glass-card">
+              <h4 style="color: #f87171; min-height: 2.2em;">📁 Inode Quota Exhaustion</h4>
+              <p>Installing full Anaconda/Miniforge extracts <strong>30,000+ tiny files</strong> into <code>$HOME</code>.
+                Shared Lustre/GPFS filesystems impose strict inode caps, locking user accounts.</p>
+            </div>
+
+            <div class="glass-card">
+              <h4 style="color: #f87171; min-height: 2.2em;">🐌 Slow Dependency Solving</h4>
+              <p>Traditional Conda SAT solvers take 10+ minutes to resolve dependency graphs, burning costly interactive
+                allocation time.</p>
+            </div>
+          </div>
+
+          <div class="fragment fade-up callout-box success" style="margin: 12px 0 0 0; width: 100%; box-sizing: border-box; font-size: 0.60em;">
+            💡 <strong>The Solution:</strong> Single-binary, zero-config managers: <strong><code>uv</code></strong> (Rust)
+            and <strong><code>micromamba</code></strong> (C++).
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 7: Next-Gen Package Managers: uv & micromamba -->
+      <section>
+        <div style="max-width: 1080px; margin: 0 auto; width: 100%;">
+          <h2>Next-Gen Managers: <code>uv</code> & <code>micromamba</code></h2>
+
+          <div class="card-grid-2" style="margin: 0 auto;">
+            <div class="glass-card">
+              <h4 style="color: #38bdf8; font-size: 0.65em; min-height: 2em; margin-bottom: 6px; white-space: nowrap; display: block;">⚡ Astral <code>uv</code> (Pure Python Speed)</h4>
+              <ul style="min-height: 7.5em;">
+                <li>Single static binary written in <strong>Rust</strong> (~25 MB).</li>
+                <li><strong>10-100x faster</strong> than standard pip/virtualenv.</li>
+                <li>Installs in 1-2 seconds with zero system side effects.</li>
+                <li>Global deduplicated hardlink cache.</li>
+              </ul>
+              <pre style="margin-top: 8px;"><code class="language-bash">uv venv .venv
+uv pip install -r requirements.txt</code></pre>
+            </div>
+
+            <div class="glass-card">
+              <h4 style="color: #a855f7; font-size: 0.65em; min-height: 2em; margin-bottom: 6px; white-space: nowrap; display: block;">🦎 <code>micromamba</code> (Compiled Binaries)</h4>
+              <ul style="min-height: 7.5em;">
+                <li>Pure <strong>C++</strong> standalone executable (~15 MB).</li>
+                <li>Fast conda-forge resolution without heavy base environments.</li>
+                <li><strong>No shell pollution:</strong> does NOT hijack <code>~/.bashrc</code> with
+                  <code>conda init</code>.
+                </li>
+                <li>Low inode footprint on cluster shared storage.</li>
+              </ul>
+              <pre style="margin-top: 8px;"><code class="language-bash">micromamba create -p ./.mamba-env \
+  -c conda-forge python=3.10
+./.mamba-env/bin/pip install -r requirements.txt</code></pre>
+            </div>
+          </div>
+
+          <div class="callout-box success fragment fade-up" style="margin: 12px 0 0 0; font-size: 0.60em; width: 100%; box-sizing: border-box;">
+            ✨ <strong>Zero-Config in this Repo:</strong> Both <code>make all-uv</code> and <code>make all-mamba</code>
+            automatically detect if the binary is missing, download it into <code>~/.local/bin</code>, and execute
+            seamlessly!
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 8: The Subshell Trap & Makefile DAG -->
+      <section>
+        <div style="max-width: 1080px; margin: 0 auto; width: 100%;">
+          <h2>The "Subshell Trap" & Make DAGs</h2>
+
+          <div class="card-grid-2" style="margin: 0 auto;">
+            <div class="glass-card">
+              <h4 style="color: #f87171; min-height: 2em; margin-bottom: 6px;">❌ The Trap: Shell Activation in Make</h4>
+              <p style="min-height: 3em;">Every line in a Makefile runs inside an <strong>independent subshell</strong>. Sourced virtualenvs vanish instantly!</p>
+              <pre style="margin-top: 8px;"><code class="language-makefile"># ❌ THIS FAILS SILENTLY:
+process:
+	source .venv/bin/activate
+	python src/process_images.py
+# (python is now system python, not .venv!)</code></pre>
+            </div>
+
+            <div class="glass-card">
+              <h4 style="color: #34d399; min-height: 2em; margin-bottom: 6px;">✅ The Solution: Direct Binary Invocation</h4>
+              <p style="min-height: 3em;">Target the environment's python executable explicitly. Idempotent, robust, and cluster-proof:</p>
+              <pre style="margin-top: 8px;"><code class="language-makefile">PYTHON = .venv/bin/python
+
+# ✅ THIS SUCCEEDS EVERY TIME:
+process: env data
+	$(PYTHON) src/process_images.py</code></pre>
+            </div>
+          </div>
+
+          <div class="glass-card fragment fade-up" style="margin-top: 12px; width: 100%; box-sizing: border-box;">
+            <h4 style="color: #38bdf8; margin-bottom: 4px;">🔄 The Automated Directed Acyclic Graph (DAG)</h4>
+            <p style="text-align: center; font-size: 0.72em; margin: 6px 0;">
+              <code>check-env</code> ➔ <code>env (.venv)</code> ➔ <code>data (download/extract)</code> ➔
+              <code>process</code> ➔ <code>test</code> ➔ <code>profile</code>
+            </p>
+            <p style="font-size: 0.54em; color: #94a3b8; text-align: center; margin: 0;">Make ensures intermediate artifacts are
+              never recomputed unless source code or dependencies change.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 9: Workshop Agenda -->
+      <section>
+        <div style="max-width: 1080px; margin: 0 auto; width: 100%;">
+          <h2>Workshop Agenda & Roadmap</h2>
+          <p style="font-size: 0.58em; color: #94a3b8; margin: 0 auto 12px auto; max-width: 850px;">
+            Structured progression from local environment isolation to multi-core CPU, GPU batching, and cluster execution.
+          </p>
+
+          <div class="card-grid-3" style="margin: 0 auto; gap: 16px;">
+            <div class="glass-card fragment fade-up">
+              <h4 style="color: #38bdf8; min-height: 2.2em;">1. Foundation & DAG</h4>
+              <ul style="font-size: 0.5em;">
+                <li><strong>Hermetic Environments:</strong> <code>uv</code> and <code>micromamba</code> auto-provisioning.</li>
+                <li><strong>The Make Subshell Trap:</strong> Direct binary targeting vs. sourcing.</li>
+                <li><strong>Automated DAG:</strong> Idempotent pipelines that never recompute existing data.</li>
+              </ul>
+            </div>
+
+            <div class="glass-card fragment fade-up">
+              <h4 style="color: #a855f7; min-height: 2.2em;">2. ETL & Reproducibility</h4>
+              <ul style="font-size: 0.5em;">
+                <li><strong>The Image Pipeline:</strong> Grayscale, 2D convolution kernel, standard resizing.</li>
+                <li><strong>Cross-Library Diff Test:</strong> OpenCV vs. Pillow vs. PyTorch pixel divergence.</li>
+                <li><strong>Strict Pinning:</strong> Why exact environments are non-negotiable for scientific research.</li>
+              </ul>
+            </div>
+
+            <div class="glass-card fragment fade-up">
+              <h4 style="color: #34d399; min-height: 2.2em;">3. Scaling & HPC</h4>
+              <ul style="font-size: 0.5em;">
+                <li><strong>Multi-Core CPU Scaling:</strong> Anti-oversubscription & SLURM cgroups.</li>
+                <li><strong>GPU Acceleration:</strong> Host-to-device streaming & CUDA batching.</li>
+                <li><strong>Profiling & SLURM:</strong> Memray, Scalene, and translating Make to <code>.sbatch</code>.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <aside class="notes">
+          Slide 9: Agenda. Outline the 3 parts: Foundation, ETL & Reproducibility, and Scaling on HPC.
+        </aside>
+      </section>
+
+      <!-- SLIDE 10: Image Processing Workflow & Operations -->
+      <section>
+        <div style="max-width: 1080px; margin: 0 auto; width: 100%;">
+          <h2>Image Processing Workflow & Operations</h2>
+          <p style="font-size: 0.58em; color: #94a3b8; margin: 0 auto 10px auto; max-width: 850px;">
+            Dataset: Oxford VGG 17flowers (17 categories, 80 images each, variable resolutions)
+          </p>
+
+          <!-- Pipeline Flow Pill Sequence -->
+          <div style="display: flex; justify-content: center; align-items: center; gap: 8px; margin: 10px 0;">
+            <div class="badge-pill cyan" style="font-size: 0.44em; padding: 4px 12px;">1. Decode RGB</div>
+            <span style="color: #38bdf8; font-size: 0.7em;">➔</span>
+            <div class="badge-pill purple" style="font-size: 0.44em; padding: 4px 12px;">2. Grayscale</div>
+            <span style="color: #a855f7; font-size: 0.7em;">➔</span>
+            <div class="badge-pill green" style="font-size: 0.44em; padding: 4px 12px;">3. 2D Sharpen (3x3)</div>
+            <span style="color: #34d399; font-size: 0.7em;">➔</span>
+            <div class="badge-pill amber" style="font-size: 0.44em; padding: 4px 12px;">4. Resize (229x229)</div>
+            <span style="color: #fbbf24; font-size: 0.7em;">➔</span>
+            <div class="badge-pill cyan" style="font-size: 0.44em; padding: 4px 12px;">5. Dimension Assert</div>
+          </div>
+
+          <div class="card-grid-3" style="margin: 8px auto 0; gap: 16px;">
+            <div class="glass-card">
+              <h4 style="color: #38bdf8; min-height: 2em;">1. Grayscale Conversion</h4>
+              <p style="font-size: 0.5em; margin-bottom: 6px;">Flattens 3-channel RGB image to 1-channel luminance:</p>
+              <p style="font-family: 'Fira Code', monospace; font-size: 0.44em; color: #7dd3fc; background: rgba(0,0,0,0.3); padding: 6px 8px; border-radius: 6px; margin: 4px 0;">
+                Y = 0.299·R + 0.587·G + 0.114·B
+              </p>
+              <p style="font-size: 0.48em; color: #94a3b8; margin-top: 6px;">Strips redundant color channels while preserving textural edges.</p>
+            </div>
+
+            <div class="glass-card">
+              <h4 style="color: #a855f7; min-height: 2em;">2. Spatial 2D Convolution</h4>
+              <p style="font-size: 0.5em; margin-bottom: 6px;">Custom edge-enhancing sharpening filter:</p>
+              <div style="font-family: 'Fira Code', monospace; font-size: 0.44em; text-align: center; background: rgba(0,0,0,0.3); padding: 4px 6px; border-radius: 6px; color: #d8b4fe; margin: 4px 0;">
+                [ 0, -1,  0 ]<br>
+                [-1,  5, -1 ]<br>
+                [ 0, -1,  0 ]
+              </div>
+              <p style="font-size: 0.48em; color: #94a3b8; margin-top: 6px;">Emphasizes high-frequency gradients across flower petal boundaries.</p>
+            </div>
+
+            <div class="glass-card">
+              <h4 style="color: #34d399; min-height: 2em;">3. Standardization (229x229)</h4>
+              <p style="font-size: 0.5em; margin-bottom: 6px;">Normalizes variable-sized images to fixed shape:</p>
+              <p style="font-family: 'Fira Code', monospace; font-size: 0.44em; color: #6ee7b7; background: rgba(0,0,0,0.3); padding: 6px 8px; border-radius: 6px; margin: 4px 0;">
+                Target: (229, 229, 1) • uint8 [0, 255]
+              </p>
+              <p style="font-size: 0.48em; color: #94a3b8; margin-top: 6px;">Strict input tensor dimension for downstream deep neural networks.</p>
+            </div>
+          </div>
+        </div>
+
+        <aside class="notes">
+          Slide 10: The image processing workflow. We perform these 3 operations on each image. Explain how different backends (OpenCV, Pillow, PyTorch) implement these operations under the hood.
+        </aside>
+      </section>
+
+      <!-- SLIDE 11: GitHub Repository Snapshot & Access Link -->
+      <section>
+        <div style="max-width: 1080px; margin: 0 auto; width: 100%;">
+          <h2>Workshop Repository & Hands-On Access</h2>
+          <p style="font-size: 0.58em; color: #94a3b8; margin: 0 auto 12px auto; max-width: 850px;">
+            All code, data download scripts, and batch profiles are open-source and ready to clone.
+          </p>
+
+          <div style="display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 24px; align-items: center; width: 100%; margin: 0 auto; text-align: left;">
+            <!-- Left Column: Actual Uploaded Snapshot -->
+            <div style="text-align: center;">
+              <a href="https://github.com/erolrecep/scientific_python_workflow_hpc" target="_blank">
+                <img src="images/github_repo_snapshot.png" alt="GitHub Repository Snapshot"
+                  style="max-height: 460px; max-width: 100%; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.18); box-shadow: 0 14px 36px rgba(0, 0, 0, 0.6); object-fit: contain; cursor: pointer;" />
+              </a>
+              <div style="font-size: 0.44em; color: #94a3b8; margin-top: 6px;">
+                💡 <em>Click snapshot to open repo in a new tab (or Alt+Click to zoom)</em>
+              </div>
+            </div>
+
+            <!-- Right Column: Access Information & Action Links -->
+            <div class="glass-card" style="padding: 22px 24px; display: flex; flex-direction: column; justify-content: space-between; height: 100%;">
+              <h4 style="color: #38bdf8; font-size: 0.64em; margin-bottom: 8px; white-space: nowrap; display: flex; align-items: center; gap: 8px;">
+                <svg height="18" viewBox="0 0 16 16" width="18" fill="#38bdf8" style="display: inline-block; flex-shrink: 0;">
+                  <path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"></path>
+                </svg>
+                <span><span style="color: #7dd3fc; font-weight: 500;">erolrecep</span> / <span style="color: #ffffff; font-weight: 700;">scientific_python_workflow_hpc</span></span>
+              </h4>
+              <p style="font-size: 0.52em; color: #cbd5e1; margin-bottom: 12px; line-height: 1.5;">
+                Transition Python workloads from local laptops to reproducible, automated High-Performance Computing systems.
+              </p>
+
+              <div style="margin-bottom: 10px;">
+                <span style="font-size: 0.46em; color: #94a3b8; display: block; margin-bottom: 4px;">1. Clone the repository:</span>
+                <pre style="margin: 0; box-shadow: none;"><code class="language-bash" style="padding: 8px 12px; font-size: 0.50em; line-height: 1.35;">git clone https://github.com/erolrecep/scientific_python_workflow_hpc.git
+cd scientific_python_workflow_hpc</code></pre>
+              </div>
+
+              <div style="margin-bottom: 14px;">
+                <span style="font-size: 0.46em; color: #94a3b8; display: block; margin-bottom: 4px;">2. One-command automated run:</span>
+                <pre style="margin: 0; box-shadow: none;"><code class="language-bash" style="padding: 8px 12px; font-size: 0.50em; line-height: 1.35;">make all-uv    # or: make all-mamba</code></pre>
+              </div>
+
+              <!-- Action Link Buttons -->
+              <div style="display: flex; gap: 10px;">
+                <a href="https://github.com/erolrecep/scientific_python_workflow_hpc" target="_blank"
+                  style="display: inline-flex; align-items: center; gap: 6px; background: #238636; color: #ffffff; padding: 8px 16px; border-radius: 6px; font-size: 0.54em; font-weight: 600; text-decoration: none;">
+                  🌐 View on GitHub ➔
+                </a>
+                <a href="https://colab.research.google.com/github/erolrecep/scientific_python_workflow_hpc/blob/main/notebooks/scientific_python_workflow_colab.ipynb" target="_blank"
+                  style="display: inline-flex; align-items: center; gap: 6px; background: #21262d; border: 1px solid #30363d; color: #58a6ff; padding: 8px 16px; border-radius: 6px; font-size: 0.54em; font-weight: 600; text-decoration: none;">
+                  ☁️ Open in Colab (Free GPU) ➔
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="notes">
+          Slide 11: Repository snapshot. Direct attendees to github.com/erolrecep/scientific_python_workflow_hpc. Walk through cloning the repo and executing make all-uv.
+        </aside>
+      </section>
+
+      <!-- SLIDE 12: The Cross-Verification Diff Results -->
+      <section>
+        <h2>The Diff Test: Why Strict Pinning Matters</h2>
+
+        <div style="max-width: 1080px; margin: 0 auto; width: 100%;">
+          <div class="callout-box warning" style="text-align: center; font-size: 0.82em; margin: 10px 0; width: 100%; box-sizing: border-box;">
+            🚨 <strong>Surprise: The pixel values are NOT identical!</strong>
+          </div>
+
+          <table class="custom-table" style="width: 100%; table-layout: fixed; margin: 14px 0; box-sizing: border-box;">
+            <thead>
+              <tr>
+                <th style="width: 22%;">Comparison Pair</th>
+                <th style="width: 20%;">Mean Pixel Difference</th>
+                <th style="width: 22%;">Maximum Absolute Difference</th>
+                <th style="width: 36%;">Root Cause</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>OpenCV vs. Pillow</strong></td>
+                <td><code>11.31 pixels</code></td>
+                <td class="highlight-cell">135.0 pixels</td>
+                <td>Differing sub-pixel interpolation offsets & kernel weights</td>
+              </tr>
+              <tr>
+                <td><strong>OpenCV vs. PyTorch</strong></td>
+                <td><code>12.09 pixels</code></td>
+                <td class="highlight-cell">140.9 pixels</td>
+                <td><code>align_corners</code> coordinate grid mapping differences</td>
+              </tr>
+              <tr>
+                <td><strong>Pillow vs. PyTorch</strong></td>
+                <td><code>1.01 pixels</code></td>
+                <td>12.8 pixels</td>
+                <td>Rounding floating-point SIMD accumulators to uint8</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="callout-box success fragment fade-up" style="margin: 14px 0 0 0; width: 100%; box-sizing: border-box; font-size: 0.62em;">
+            🎯 <strong>Scientific Takeaway:</strong> Two researchers using different image library versions will produce
+            diverging CNN features and non-reproducible model weights. Environment pinning is a scientific imperative!
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 13: Multi-Core CPU Scaling -->
+      <section>
+        <div style="max-width: 1080px; margin: 0 auto; width: 100%;">
+          <h2>Multi-Core Scaling & Anti-Oversubscription</h2>
+          <p style="font-size: 0.62em; color: #94a3b8; max-width: 900px; margin: 0 auto 12px;">Python's GIL prevents multi-threaded CPU saturation. Solution:
+            <code>ProcessPoolExecutor</code>.
+          </p>
+
+          <div class="card-grid-3" style="margin: 0 auto;">
+            <div class="glass-card">
+              <div>
+                <h4 style="font-size: 0.68em; min-height: 2.2em; margin-bottom: 6px;">1. Accurate Core Probing</h4>
+                <p style="min-height: 3.4em;">Never blindly call <code>os.cpu_count()</code> on HPC! Inspect SLURM cgroups:</p>
+              </div>
+              <pre style="margin-top: 8px;"><code class="language-python">cores = int(os.environ.get(
+    "SLURM_CPUS_PER_TASK",
+    len(os.sched_getaffinity(0))
+))</code></pre>
+            </div>
+
+            <div class="glass-card">
+              <div>
+                <h4 style="font-size: 0.68em; min-height: 2.2em; margin-bottom: 6px;">2. Anti-Oversubscription</h4>
+                <p style="min-height: 3.4em;">Stop 16 child processes from each spawning 8 threads (128 threads choking 16 cores!):</p>
+              </div>
+              <pre style="margin-top: 8px;"><code class="language-python">os.environ["OMP_NUM_THREADS"] = "1"
+cv2.setNumThreads(1)
+torch.set_num_threads(1)</code></pre>
+            </div>
+
+            <div class="glass-card">
+              <div>
+                <h4 style="font-size: 0.68em; min-height: 2.2em; margin-bottom: 6px;">3. Contiguous Chunking</h4>
+                <p style="min-height: 3.4em;">Batch images into contiguous slices per worker to eliminate 99% of IPC serialization overhead:</p>
+              </div>
+              <pre style="margin-top: 8px;"><code class="language-python"># 1000 images / 16 cores
+chunk_size = len(images) // workers</code></pre>
+            </div>
+          </div>
+
+          <div class="callout-box success fragment fade-up" style="font-size: 0.6em; margin: 12px 0 0 0; width: 100%; box-sizing: border-box;">
+            📈 <strong>Benchmarking:</strong> <code>make benchmark WORKERS=16 BACKEND=opencv</code> delivers
+            <strong>1,408.9 img/s</strong> (2.74x speedup over single-core).
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 14: The Third Paradigm: GPU Acceleration -->
+      <section>
+        <div style="max-width: 1080px; margin: 0 auto; width: 100%;">
+          <h2 style="font-size: 1.25em; margin-bottom: 4px;">The 3rd Paradigm: GPU Acceleration</h2>
+          <p style="font-size: 0.56em; color: #94a3b8; margin: 0 auto 10px auto;">When CPU multi-core hits memory bus bottlenecks, offload to tensor cores.</p>
+
+          <div class="card-grid-2" style="margin: 0 auto; align-items: stretch;">
+            <!-- Left Card: Architecture Highlights -->
+            <div class="glass-card" style="padding: 18px 22px; display: flex; flex-direction: column; justify-content: flex-start; height: 100%; box-sizing: border-box;">
+              <h4 style="color: #38bdf8; font-size: 0.72em; min-height: 2em; margin-bottom: 10px; display: flex; align-items: center;">
+                ⚡ GPU Architecture Highlights
+              </h4>
+              <ul style="font-size: 0.50em; line-height: 1.5; padding-left: 18px; margin: 0;">
+                <li style="margin-bottom: 10px;">
+                  <strong>Host-to-Device Streaming:</strong> Multi-threaded SIMD host decoding
+                  (<code>cv2.imread</code>) streams non-blocking tensors directly to GPU memory (MPS / CUDA).
+                </li>
+                <li style="margin-bottom: 10px;">
+                  <strong>Batched 2D Convolutions:</strong> Sharpening filter computed simultaneously across all batch
+                  items via <code>F.conv2d(batch, weight, padding=1)</code>.
+                </li>
+                <li>
+                  <strong>GPU Bilinear Resizing:</strong> Resizing to <code>(229, 229)</code> executes entirely on high-bandwidth
+                  VRAM via <code>F.interpolate()</code>.
+                </li>
+              </ul>
+            </div>
+
+            <!-- Right Card: Benchmark Metrics & Execution -->
+            <div class="glass-card" style="padding: 18px 22px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; height: 100%; box-sizing: border-box;">
+              <div>
+                <h4 style="color: #34d399; font-size: 0.72em; min-height: 2em; margin-bottom: 10px; display: flex; align-items: center; justify-content: center;">
+                  🚀 Accelerated Tensor Core Throughput
+                </h4>
+                <div style="margin: 8px 0 4px 0;">
+                  <span class="key-metric gradient-text-green" style="font-size: 1.8em; white-space: nowrap; line-height: 1.1; margin-bottom: 2px;">5.38x – 6.24x</span>
+                  <span style="font-size: 0.56em; color: #94a3b8; display: block;">GPU (MPS / CUDA) vs. Multi-Core CPU</span>
+                </div>
+              </div>
+
+              <div class="callout-box" style="font-size: 0.50em; text-align: left; margin: 8px 0 0 0; padding: 10px 14px; width: 100%; box-sizing: border-box; line-height: 1.5;">
+                <div style="font-family: 'Fira Code', monospace; font-size: 0.92em; margin-bottom: 6px; background: rgba(0, 0, 0, 0.35); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.08);">
+                  <span style="color: #7dd3fc;">make process-gpu DEVICE=mps</span> <span style="color: #64748b;"># Apple Silicon</span><br>
+                  <span style="color: #7dd3fc;">make process-gpu DEVICE=cuda</span> <span style="color: #64748b;"># Colab / HPC GPU</span>
+                </div>
+                <div style="color: #e2e8f0;">
+                  Delivers up to <strong>5,278.8 img/s</strong> (0.095 s) while offloading computation from CPU cores.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 15: Empirical Benchmark Results -->
+      <section>
+        <h2 style="font-size: 1.2em; margin-bottom: 4px;">Empirical Benchmark Comparison</h2>
+        <p style="font-size: 0.52em; color: #94a3b8; max-width: 950px; margin: 0 auto 6px;">Tested across Apple Silicon M5 Max (Metal Performance Shaders) and Google Cloud GPU (Colab Tesla T4).</p>
+
+        <div style="max-width: 1080px; margin: 0 auto; width: 100%;">
+          <table class="custom-table compact" style="width: 100%; table-layout: fixed; margin: 6px 0; font-size: 0.47em; box-sizing: border-box;">
+            <thead>
+              <tr>
+                <th style="width: 25%;">Target Platform</th>
+                <th style="width: 13%;">Backend</th>
+                <th style="width: 18%;">Execution Mode</th>
+                <th style="width: 13%;">Wall Time</th>
+                <th style="width: 16%;">Throughput</th>
+                <th style="width: 15%;">Speedup</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Apple M5 Max</strong> (18C)</td>
+                <td>OpenCV</td>
+                <td>CPU (1-Core)</td>
+                <td>0.290 s</td>
+                <td>1,722.9 img/s</td>
+                <td>1.00x</td>
+              </tr>
+              <tr>
+                <td><strong>Apple M5 Max</strong> (18C)</td>
+                <td>OpenCV</td>
+                <td>CPU (16-Cores)</td>
+                <td><strong>0.250 s</strong></td>
+                <td><strong>1,996.6 img/s</strong></td>
+                <td>1.16x</td>
+              </tr>
+              <tr>
+                <td><strong>Apple M5 Max</strong> (18C)</td>
+                <td>PyTorch</td>
+                <td>CPU (16-Cores)</td>
+                <td>1.909 s</td>
+                <td>261.9 img/s</td>
+                <td style="color: #f87171;">0.15x (GIL Trap)</td>
+              </tr>
+              <tr style="background: rgba(56, 189, 248, 0.12);">
+                <td><strong>Apple M5 Max</strong> (Metal)</td>
+                <td>PyTorch</td>
+                <td><strong>GPU (MPS)</strong></td>
+                <td><strong>0.095 s</strong></td>
+                <td><strong>5,278.8 img/s</strong></td>
+                <td class="highlight-cell">5.38x vs CPU</td>
+              </tr>
+              <tr>
+                <td><strong>Google Cloud</strong> (2 vCPUs)</td>
+                <td>OpenCV</td>
+                <td>CPU (2-Cores)</td>
+                <td>0.994 s</td>
+                <td>503.0 img/s</td>
+                <td>1.77x</td>
+              </tr>
+              <tr style="background: rgba(52, 211, 153, 0.12);">
+                <td><strong>Google Cloud T4</strong> (15GB)</td>
+                <td>PyTorch</td>
+                <td><strong>GPU (CUDA)</strong></td>
+                <td><strong>0.612 s</strong></td>
+                <td><strong>817.0 img/s</strong></td>
+                <td class="highlight-cell">6.24x vs CPU</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="callout-box success fragment fade-up" style="font-size: 0.52em; padding: 10px 16px; margin: 8px 0 0 0; width: 100%; box-sizing: border-box;">
+            💡 <strong>Key Finding:</strong> Apple Silicon M5 Max unified memory & MPS delivers unmatched local latency (<strong>5,278.8 img/s</strong>). Google Cloud Tesla T4 provides accessible, zero-install CUDA acceleration for cluster prototyping.
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 16: Profiling: Memray & Scalene -->
+      <section>
+        <div style="max-width: 1080px; margin: 0 auto; width: 100%;">
+          <h2>Profiling Before Requesting HPC Nodes</h2>
+          <div class="callout-box warning" style="font-size: 0.62em; margin: 8px 0 12px 0; width: 100%; box-sizing: border-box;">
+            Don't request 128 GB RAM and 32 cores for a script that consumes 4 GB and uses 1 core!
+          </div>
+
+          <div class="card-grid-2" style="margin: 0 auto;">
+            <div class="glass-card" style="display: flex; flex-direction: column; justify-content: space-between; height: 100%;">
+              <div>
+                <h4 style="color: #38bdf8; min-height: 2em; margin-bottom: 6px;">🧠 Memory Profiling (<code>memray</code>)</h4>
+                <ul style="min-height: 6.8em;">
+                  <li>Tracks memory allocations down into <strong>native C/C++ extensions</strong>.</li>
+                  <li>Generates an interactive HTML <strong>Flamegraph</strong>.</li>
+                  <li>Isolates memory leaks before they trigger Linux OOM (Out Of Memory) killer on cluster nodes.</li>
+                </ul>
+              </div>
+              <pre style="margin-top: 8px; font-size: 0.35em;"><code class="language-bash">python -m memray run -o results/profile.bin script.py
+python -m memray flamegraph results/profile.bin</code></pre>
+            </div>
+
+            <div class="glass-card" style="display: flex; flex-direction: column; justify-content: space-between; height: 100%;">
+              <div>
+                <h4 style="color: #a855f7; min-height: 2em; margin-bottom: 6px;">⚡ CPU Profiling (<code>scalene</code>)</h4>
+                <ul style="min-height: 6.8em;">
+                  <li>High-precision, line-by-line CPU and memory profiler.</li>
+                  <li>Separates <strong>Python time</strong> vs. <strong>Native C time</strong>.</li>
+                  <li>Reveals that <strong>&gt;90%</strong> of image ETL occurs in native C (why pure Python profilers lie!).</li>
+                </ul>
+              </div>
+              <pre style="margin-top: 8px; font-size: 0.35em;"><code class="language-bash">scalene run --cpu-only -o results/profile.json script.py
+scalene view results/profile.json</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <aside class="notes">
+          We run Memray and Scalene sequentially in separate subshells to avoid instrumentation interference.
+        </aside>
+      </section>
+
+      <!-- SLIDE 17: Automated Unit Testing -->
+      <section>
+        <div style="max-width: 1080px; margin: 0 auto; width: 100%;">
+          <h2>Testing for Scientific Confidence</h2>
+          <p style="font-size: 0.62em; color: #94a3b8; margin: 0 auto 10px auto;">Automate pipeline regression tests with <code>pytest</code>.</p>
+
+          <div class="card-grid-2" style="margin: 0 auto;">
+            <div class="glass-card" style="display: flex; flex-direction: column; justify-content: space-between; height: 100%;">
+              <div>
+                <h4 style="font-size: 0.68em; min-height: 2em; margin-bottom: 6px;">Dimension & Type Assertions</h4>
+                <p style="min-height: 3em;">Ensure that whether an image is processed via OpenCV, Pillow, or PyTorch, the output strictly matches CNN input dimensions:</p>
+              </div>
+              <pre style="margin-top: 8px; font-size: 0.35em;"><code class="language-python">def test_opencv_processing():
+    img = cv2.imread(SAMPLE_IMAGE)
+    processed = process_opencv(img)
+    assert processed.shape == (229, 229)
+    assert processed.dtype == np.uint8
+
+def test_multicore_consistency():
+    seq = process_all_sequential(images[:10])
+    par = process_all_parallel(images[:10], workers=4)
+    assert np.allclose(seq, par)</code></pre>
+            </div>
+
+            <div class="glass-card" style="display: flex; flex-direction: column; justify-content: space-between; height: 100%;">
+              <div>
+                <h4 style="color: #34d399; font-size: 0.68em; min-height: 2em; margin-bottom: 6px;">Automated DAG Verification</h4>
+                <p style="min-height: 3em;">Automated pre-flight tests catch bugs locally before submitting batch jobs to institutional cluster schedulers:</p>
+              </div>
+              <pre style="margin-top: 8px; font-size: 0.35em;"><code class="language-bash">$ make test
+=== test session starts ===
+collected 3 items
+
+tests/test_pipeline.py::test_opencv_processing PASSED  [ 33%]
+tests/test_pipeline.py::test_pillow_processing PASSED  [ 66%]
+tests/test_pipeline.py::test_pytorch_processing PASSED [100%]
+
+=== 3 passed in 0.42s ===</code></pre>
+            </div>
+          </div>
+
+          <div class="callout-box success fragment fade-up" style="font-size: 0.58em; margin: 12px 0 0 0; width: 100%; box-sizing: border-box;">
+            🛡️ <strong>CI/CD & Pre-Flight Verification:</strong> If tests fail locally, the job never submits to the cluster. Save compute allocations and prevent wasted cluster wait times!
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 18: The HPC Bridge: SLURM -->
+      <section>
+        <div style="max-width: 1080px; margin: 0 auto; width: 100%;">
+          <h2>The HPC Bridge: Translating Make to SLURM</h2>
+          <p style="font-size: 0.62em; color: #94a3b8; margin: 0 auto 10px auto;">Submitting your automated pipeline to a SLURM scheduler (<code>Makefile.sbatch</code>).</p>
+
+          <div class="glass-card" style="padding: 12px 18px; margin: 0 auto;">
+            <pre style="margin: 0; font-size: 0.37em;"><code class="language-bash">#!/bin/bash
+#SBATCH --job-name=scientific_pipeline
+#SBATCH --output=results/hpc_job_%j.out
+#SBATCH --time=00:30:00
+#SBATCH --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=16G
+#SBATCH --gres=gpu:1               # Optional: request 1 GPU for process-gpu
+
+# 1. Load institutional compiler/environment modules
+module purge && module load miniforge             # Or: module load Python/3.10
+
+# 2. Execute the idempotent Make DAG across allocated SLURM cpus
+make all-uv WORKERS=${SLURM_CPUS_PER_TASK} MAX_IMAGES=5000</code></pre>
+          </div>
+
+          <div class="callout-box success fragment fade-up" style="font-size: 0.58em; padding: 10px 16px; margin: 10px 0 0 0; width: 100%; box-sizing: border-box;">
+            🚀 <strong>Submit Command:</strong> <code>sbatch Makefile.sbatch</code> &nbsp;•&nbsp;
+            Inspect status with <code>squeue -u $USER</code> &nbsp;•&nbsp; All outputs and flamegraphs will be neatly compiled into <code>results/</code>!
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 19: Hands-On Commands Cheat Sheet -->
+      <section>
+        <div style="max-width: 1080px; margin: 0 auto; width: 100%;">
+          <h2>Hands-On Commands Cheat Sheet</h2>
+          <table class="custom-table compact" style="width: 100%; table-layout: fixed; margin: 8px 0; font-size: 0.44em; box-sizing: border-box;">
+            <thead>
+              <tr>
+                <th style="width: 24%;">Task</th>
+                <th style="width: 34%;">Make Command</th>
+                <th style="width: 42%;">What It Does</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Full UV Pipeline</strong></td>
+                <td><code>make all-uv</code></td>
+                <td>Auto-installs <code>uv</code>, creates <code>.venv</code>, downloads data, runs pipeline, tests, and profilers.</td>
+              </tr>
+              <tr>
+                <td><strong>Full Mamba Pipeline</strong></td>
+                <td><code>make all-mamba</code></td>
+                <td>Auto-provisions standalone <code>micromamba</code>, creates <code>.mamba-env</code>, and runs complete workflow.</td>
+              </tr>
+              <tr>
+                <td><strong>Multi-Core Benchmark</strong></td>
+                <td><code>make benchmark WORKERS=8</code></td>
+                <td>Measures 1-core vs. 8-core scaling speedup and IPC chunking efficiency.</td>
+              </tr>
+              <tr>
+                <td><strong>Compare All Backends</strong></td>
+                <td><code>make benchmark-all</code></td>
+                <td>Runs comparative benchmarks across OpenCV, Pillow, PyTorch CPU, and GPU.</td>
+              </tr>
+              <tr>
+                <td><strong>GPU Batch Processing</strong></td>
+                <td><code>make process-gpu DEVICE=mps</code><br><span style="color: #94a3b8; font-size: 0.9em;">(or <code>DEVICE=cuda</code> on Colab/Linux)</span></td>
+                <td>Executes batched 2D tensor convolution and resizing on GPU tensor cores.</td>
+              </tr>
+              <tr>
+                <td><strong>View CPU Profile</strong></td>
+                <td><code>.venv/bin/scalene view results/*.json</code></td>
+                <td>Launches browser GUI to inspect line-by-line native vs. Python CPU bottlenecks.</td>
+              </tr>
+              <tr>
+                <td><strong>Clean Reset</strong></td>
+                <td><code>make clean</code></td>
+                <td>Removes virtualenvs, downloaded images, and profiling artifacts to reset repo.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- SLIDE 20: Summary & Resources -->
+      <section>
+        <div style="max-width: 1080px; margin: 0 auto; width: 100%;">
+          <h1 style="font-size: 1.8em; margin-bottom: 8px;">Thank You & Resources</h1>
+          <p style="font-size: 0.7em; color: #38bdf8; margin-bottom: 20px;">Scaling up scientific workflows is a journey of disciplined automation.</p>
+
+          <div class="card-grid-2" style="margin: 0 auto;">
+            <div class="glass-card" style="padding: 24px; display: flex; flex-direction: column; justify-content: space-between; height: 100%; box-sizing: border-box;">
+              <h4 style="color: #38bdf8; font-size: 0.75em; margin-bottom: 12px;">📚 Links & Repositories</h4>
+              <ul style="font-size: 0.52em; line-height: 1.6;">
+                <li style="margin-bottom: 10px;"><strong>Workshop Repo:</strong><br>
+                  <a href="https://github.com/erolrecep/scientific_python_workflow_hpc" target="_blank" style="color: #7dd3fc;">
+                    github.com/erolrecep/scientific_python_workflow_hpc
+                  </a>
+                </li>
+                <li style="margin-bottom: 10px;"><strong>Interactive Colab Notebook:</strong><br>
+                  <a href="https://colab.research.google.com/github/erolrecep/scientific_python_workflow_hpc/blob/main/notebooks/scientific_python_workflow_colab.ipynb"
+                    target="_blank" style="color: #7dd3fc;">
+                    scientific_python_workflow_colab.ipynb
+                  </a>
+                </li>
+                <li><strong>Technical Blog:</strong><br>
+                  <a href="https://erolrecep.github.io" target="_blank" style="color: #7dd3fc;">
+                    erolrecep.github.io
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            <div class="glass-card" style="padding: 24px; display: flex; flex-direction: column; justify-content: center; text-align: center; height: 100%; box-sizing: border-box;">
+              <h3 style="font-size: 1.25em; margin-bottom: 8px;">Questions & Discussion</h3>
+              <p style="font-size: 0.58em; color: #94a3b8; margin-bottom: 16px;">Open floor for questions on cluster
+                scaling, profilers, or environment management.</p>
+              <div style="font-size: 0.58em; color: #cbd5e1; line-height: 1.6;">
+                <strong>Recep Erol, PhD</strong><br>
+                <a href="mailto:re51@rice.edu" style="color: #38bdf8;">re51@rice.edu</a> • Rice University
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- Reveal.js Core & Plugins -->
+  <script src="dist/reveal.js"></script>
+  <script src="dist/plugin/zoom.js"></script>
+  <script src="dist/plugin/notes.js"></script>
+  <script src="dist/plugin/search.js"></script>
+  <script src="dist/plugin/markdown.js"></script>
+  <script src="dist/plugin/highlight.js"></script>
+
+  <!-- Reveal.js Initialization -->
+  <script>
+    Reveal.initialize({
+      // Presentation dimensions (16:9 widescreen)
+      width: 1280,
+      height: 720,
+      margin: 0.06,
+      minScale: 0.2,
+      maxScale: 2.0,
+
+      // Navigation & display options
+      controls: true,
+      progress: true,
+      center: true,
+      hash: true,
+      slideNumber: 'c/t',
+      transition: 'slide', // none/fade/slide/convex/concave/zoom
+      transitionSpeed: 'fast',
+      backgroundTransition: 'fade',
+
+      // Plugins
+      plugins: [
+        RevealZoom,
+        RevealNotes,
+        RevealSearch,
+        RevealMarkdown,
+        RevealHighlight
+      ]
+    });
+  </script>
+</body>
+
+</html>

@@ -10,6 +10,8 @@ data/
 results/
 *.json
 *.html
+!slides/*.html
+!slides/**/*.html
 *.bin
 *.out
 *.err

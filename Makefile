@@ -1,7 +1,13 @@
-.PHONY: help all-uv all-mamba check-uv check-mamba env env-uv env-mamba data data-synthetic process process-gpu benchmark benchmark-all test profile clean
+.PHONY: help all-uv all-mamba check-uv check-mamba install-micromamba env env-uv env-mamba data data-synthetic process process-gpu benchmark benchmark-all test profile slides clean
 
 # Ensure user-installed binaries (~/.local/bin and ~/.cargo/bin) are on PATH for all subshells
 export PATH := $(HOME)/.local/bin:$(HOME)/.cargo/bin:$(PATH)
+
+# Root prefix for micromamba cache & index (keeps environments isolated without modifying shell profiles)
+export MAMBA_ROOT_PREFIX ?= $(HOME)/micromamba
+
+# Detect available mamba binary (micromamba or full mamba)
+MAMBA_BIN ?= $(shell command -v micromamba 2>/dev/null || command -v mamba 2>/dev/null || echo micromamba)
 
 # Explicitly set the default goal to 'help'
 .DEFAULT_GOAL := help
@@ -13,6 +19,7 @@ MAX_IMAGES ?= 200
 BACKEND ?= opencv
 DEVICE ?= auto
 BATCH_SIZE ?= 64
+SLIDES_PORT ?= 8003
 
 # Dynamically set paths based on the chosen environment. 
 # Mamba requires the ./ prefix to force a local directory installation.
@@ -63,22 +70,44 @@ check-uv: ## Check if uv is installed; if missing, automatically download and in
 		echo "✅ 'uv' is installed and ready: $$(which uv) ($$(uv --version))"; \
 	fi
 
-check-mamba: ## Check if mamba or micromamba is installed
+install-micromamba: ## Explicitly download and install standalone micromamba to ~/.local/bin
+	@echo "======================================================================"
+	@echo "📦 Installing standalone 'micromamba' into $(HOME)/.local/bin..."
+	@echo "ℹ️  Non-interactive, zero-config: does NOT alter shell profiles (~/.bashrc)."
+	@echo "======================================================================"
+	@mkdir -p $(HOME)/.local/bin
+	@if command -v curl >/dev/null 2>&1; then \
+		INIT_YES=no CONDA_FORGE_YES=yes BIN_FOLDER="$(HOME)/.local/bin" curl -LsSf https://micro.mamba.pm/install.sh | sh; \
+	elif command -v wget >/dev/null 2>&1; then \
+		INIT_YES=no CONDA_FORGE_YES=yes BIN_FOLDER="$(HOME)/.local/bin" wget -qO- https://micro.mamba.pm/install.sh | sh; \
+	else \
+		echo "❌ Error: Neither curl nor wget was found to install micromamba."; \
+		exit 1; \
+	fi
+	@if ! command -v micromamba >/dev/null 2>&1; then \
+		echo "❌ Error: micromamba installation finished, but binary was not found in PATH."; \
+		echo "👉 Ensure $(HOME)/.local/bin is in your PATH (e.g. in ~/.bashrc or ~/.zshrc)."; \
+		exit 1; \
+	fi
+	@echo "✅ 'micromamba' installed successfully at: $$(which micromamba) ($$(micromamba --version))"
+	@echo "======================================================================"
+
+check-mamba: ## Check if mamba or micromamba is installed; auto-installs standalone micromamba if missing
 	@if ! command -v mamba >/dev/null 2>&1 && ! command -v micromamba >/dev/null 2>&1; then \
 		echo "======================================================================"; \
-		echo "⚠️  'mamba' or 'micromamba' not found in PATH."; \
-		echo "👉 To use Mamba, install Miniforge: https://github.com/conda-forge/miniforge"; \
-		echo "💡 Or simply use 'make all-uv' for instant zero-config Python speed!"; \
+		echo "⚡ 'mamba' / 'micromamba' package manager not found in PATH."; \
+		echo "💡 HPC Tip: If on a cluster, check if modules exist: 'module load miniforge'"; \
+		echo "🚀 Auto-installing standalone 'micromamba' into $(HOME)/.local/bin..."; \
 		echo "======================================================================"; \
-		exit 1; \
+		$(MAKE) install-micromamba; \
 	else \
-		echo "✅ 'mamba'/'micromamba' is installed and ready: $$(which mamba 2>/dev/null || which micromamba 2>/dev/null)"; \
+		echo "✅ '$$(basename $$(command -v micromamba 2>/dev/null || command -v mamba 2>/dev/null))' is installed and ready: $$(command -v micromamba 2>/dev/null || command -v mamba 2>/dev/null)"; \
 	fi
 
 all-uv: check-uv ## Run the entire multi-core workflow using 'uv' as the environment manager (auto-installs uv if missing)
 	$(MAKE) ENV=uv process test profile
 
-all-mamba: check-mamba ## Run the entire multi-core workflow using 'mamba' as the environment manager
+all-mamba: check-mamba ## Run the entire multi-core workflow using 'mamba' as the environment manager (auto-installs micromamba if missing)
 	$(MAKE) ENV=mamba process test profile
 
 # Meta-target that routes to the correct environment builder
@@ -91,9 +120,10 @@ env-uv: check-uv ## Create the virtual environment using uv (auto-installs uv if
 		uv pip install --python $(PYTHON) -r requirements.txt; \
 	fi
 
-env-mamba: check-mamba ## Create the virtual environment using mamba
+env-mamba: check-mamba ## Create the virtual environment using mamba or micromamba (auto-installs micromamba if missing)
 	@if [ ! -d "$(VENV_DIR)" ]; then \
-		mamba create -y -p $(VENV_DIR) python=3.10 && \
+		echo "📦 Creating virtual environment $(VENV_DIR) with $(MAMBA_BIN)..."; \
+		$(MAMBA_BIN) create -y -p $(VENV_DIR) -c conda-forge python=3.10 && \
 		$(PYTHON) -m pip install -r requirements.txt; \
 	fi
 
@@ -129,6 +159,14 @@ profile: env data ## Run CPU (Scalene) and Memory (Memray) profilers on the pipe
 	@echo "To view the CPU profile in your browser, copy and paste this command:"
 	@echo "  $(VENV_DIR)/bin/scalene view results/scalene_profile.json"
 	@echo "======================================================================"
+
+slides: ## Serve the Reveal.js workshop presentation at http://localhost:8003
+	@echo "======================================================================"
+	@echo "🖥️  Serving Reveal.js Workshop Presentation at http://localhost:$(SLIDES_PORT)"
+	@echo "👉 Open your browser to: http://localhost:$(SLIDES_PORT)"
+	@echo "👉 Presentation Controls: 'F' for Fullscreen, 'S' for Speaker View, 'ESC' for Map"
+	@echo "======================================================================"
+	@(cd slides && python3 -m http.server $(SLIDES_PORT))
 
 clean: ## Remove environments, data downloads, and generated artifacts to reset
 	rm -rf .venv ./.mamba-env data/ results/ .pytest_cache/ __pycache__/ src/__pycache__/ tests/__pycache__/

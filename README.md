@@ -48,8 +48,8 @@ The core philosophy of this workshop is: **Experiment and debug locally, automat
 
 * `git` and `make`
 * Python 3.9+
-* `curl` (used by `make all-uv` to auto-install `uv` if missing)
-* Mamba / Micromamba (optional, if using the Mamba workflow)
+* `curl` or `wget` (used by `make all-uv` and `make all-mamba` to auto-install package managers if missing)
+* Mamba / Micromamba (optional: will auto-download standalone `micromamba` if missing, or use your existing installation / HPC module)
 
 ## ⚡ The Quickstart: One-Command Execution
 
@@ -73,6 +73,24 @@ Our master `Makefile` orchestrates the entire workflow. You can choose your pref
   make all-mamba
   ```
 
+  > 💡 **Zero-Config Standalone Micromamba:**  
+  > If `mamba` or `micromamba` is not found on your system (and no HPC module is loaded), `make all-mamba` (and `make env-mamba`) automatically downloads and installs standalone **`micromamba`** (pure C++ single binary) into `~/.local/bin`.  
+  > **No shell pollution:** It runs non-interactively without modifying your shell profiles (`~/.bashrc` / `~/.zshrc`) or base environment. You can also trigger or verify this standalone anytime with:  
+  > ```bash
+  > make check-mamba
+  > # or explicitly install:
+  > make install-micromamba
+  > ```
+
+* **To launch the interactive workshop presentation (Reveal.js):**
+
+  ```bash
+  make slides
+  ```
+
+  Serves the presentation from [`slides/`](file:///Users/erolrecep/Developer/codebase/apps/scientific_python_workflow_hpc/slides/) at `http://localhost:8003`.  
+  *Hotkeys:* Press <kbd>F</kbd> for fullscreen, <kbd>S</kbd> for dual-screen Speaker Notes, <kbd>ESC</kbd> for slide overview grid, and <kbd>B</kbd> to pause/blank the screen.
+
 ## 🛠️ Environment Managers: `make` vs. Manual Commands
 
 Behind the scenes, our `Makefile` automates the environment creation. If you were to run these commands manually without `make`, here is what it looks like:
@@ -92,15 +110,16 @@ Behind the scenes, our `Makefile` automates the environment creation. If you wer
 
 ### The `mamba` Workflow
 
-`mamba` is a fast drop-in replacement for `conda`, perfect when you need non-Python binaries (like complex GPU drivers or system-level C libraries).
+`mamba` is a fast drop-in replacement for `conda`, perfect when you need non-Python binaries (like complex GPU drivers or system-level C libraries). If neither `mamba` nor `micromamba` is installed, our `Makefile` automatically provisions standalone `micromamba`.
 
 * **Make Command:** `make env-mamba`
 
 * **Manual Equivalent:**
-  *Note: We use `./.mamba-env` to force mamba to install locally rather than globally.*
+  *Note: We use `./.mamba-env` to force mamba/micromamba to install locally rather than globally.*
 
   ```bash
-  mamba create -y -p ./.mamba-env python=3.10
+  # Using micromamba or mamba:
+  micromamba create -y -p ./.mamba-env -c conda-forge python=3.10
   ./.mamba-env/bin/python -m pip install -r requirements.txt
   ```
 
